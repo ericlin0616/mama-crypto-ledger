@@ -1,7 +1,11 @@
 import { SYMBOL_META, type PortfolioView } from "./portfolio";
 
 export type TrendRange = "7d" | "30d" | "90d";
-export type TrendPoint = { t: number; totalTwd: number };
+export type TrendPoint = {
+  t: number;
+  totalTwd: number;
+  btcTwd: number | null;
+};
 
 type Bag = {
   id: string;
@@ -141,6 +145,15 @@ async function mapPool<T, R>(
   return out;
 }
 
+function scaleBtc(
+  firstTotal: number,
+  firstBtc: number | null,
+  close: number | null,
+): number | null {
+  if (!firstBtc || !close || firstTotal <= 0) return null;
+  return firstTotal * (close / firstBtc);
+}
+
 export async function buildTrend(
   view: PortfolioView,
   range: TrendRange,
@@ -148,7 +161,10 @@ export async function buildTrend(
 ): Promise<TrendPoint[]> {
   const bags = bagsFromView(view);
   const pairs = [
-    ...new Set(bags.map((b) => b.pair).filter((p): p is string => Boolean(p))),
+    ...new Set([
+      ...bags.map((b) => b.pair).filter((p): p is string => Boolean(p)),
+      "BTCUSDT",
+    ]),
   ];
   const seriesList = await mapPool(pairs, 5, async (pair) => {
     try {
@@ -158,13 +174,14 @@ export async function buildTrend(
     }
   });
   const series = new Map(seriesList.map((s) => [s.pair, s.rows]));
+  const btcRows = series.get("BTCUSDT") ?? [];
   const spine =
-    series.get("BTCUSDT") ??
+    (btcRows.length >= 3 ? btcRows : null) ??
     seriesList.find((s) => s.rows.length >= 3)?.rows ??
     [];
   if (spine.length < 3) return [];
 
-  const points: TrendPoint[] = spine.map((candle) => {
+  const totals = spine.map((candle) => {
     let total = 0;
     for (const bag of bags) {
       if (bag.stable || !bag.pair || bag.qty <= 0) {
@@ -179,12 +196,31 @@ export async function buildTrend(
     return { t: candle.t, totalTwd: total };
   });
 
+  const firstTotal = totals[0]?.totalTwd ?? 0;
+  const firstBtc = closeAtOrBefore(btcRows, totals[0]?.t ?? 0);
+  const liveBtc = view.majors.find((m) => m.symbol === "BTC")?.usd ?? null;
+
+  const points: TrendPoint[] = totals.map((row) => ({
+    t: row.t,
+    totalTwd: row.totalTwd,
+    btcTwd: scaleBtc(firstTotal, firstBtc, closeAtOrBefore(btcRows, row.t)),
+  }));
+
   const last = points[points.length - 1];
   if (last && Math.abs(last.totalTwd - view.totalTwd) > 1) {
-    points.push({ t: Date.now(), totalTwd: view.totalTwd });
+    points.push({
+      t: Date.now(),
+      totalTwd: view.totalTwd,
+      btcTwd: scaleBtc(firstTotal, firstBtc, liveBtc ?? closeAtOrBefore(btcRows, Date.now())),
+    });
   } else if (last) {
     last.totalTwd = view.totalTwd;
     last.t = Date.now();
+    last.btcTwd = scaleBtc(
+      firstTotal,
+      firstBtc,
+      liveBtc ?? closeAtOrBefore(btcRows, Date.now()),
+    );
   }
   return points;
 }

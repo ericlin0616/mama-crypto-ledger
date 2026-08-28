@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Area,
-  AreaChart,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -9,6 +10,7 @@ import {
 } from "recharts";
 import {
   formatMd,
+  formatPct,
   formatSignedPct,
   formatSignedTwd,
   formatTwdNumber,
@@ -22,6 +24,8 @@ const RANGES: { id: TrendRange; label: string }[] = [
   { id: "30d", label: "30 天" },
   { id: "90d", label: "90 天" },
 ];
+
+const BTC_STROKE = "var(--color-ink)";
 
 type Props = {
   view: PortfolioView;
@@ -42,16 +46,28 @@ function ChartTip({
   label,
 }: {
   active?: boolean;
-  payload?: { value: number }[];
+  payload?: { dataKey?: string; name?: string; value?: number; color?: string }[];
   label?: number;
 }) {
-  if (!active || !payload?.[0] || !label) return null;
+  if (!active || !payload?.length || !label) return null;
   return (
     <div className="rounded-md bg-paper px-3 py-2 shadow-card">
       <p className="text-xs text-muted">{formatMd(label)}</p>
-      <p className="font-serif text-lg tabular-nums tracking-tight">
-        {formatTwdNumber(payload[0].value)}
-      </p>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        {payload.map((row) =>
+          row.value == null ? null : (
+            <li
+              key={String(row.dataKey)}
+              className="flex items-baseline justify-between gap-4 text-sm"
+            >
+              <span className="text-muted">{row.name}</span>
+              <span className="font-serif tabular-nums">
+                {formatTwdNumber(row.value)}
+              </span>
+            </li>
+          ),
+        )}
+      </ul>
     </div>
   );
 }
@@ -86,28 +102,45 @@ export function TrendChart({ view, usdTwd }: Props) {
 
   const stats = useMemo(() => {
     if (points.length < 2) return null;
-    const first = points[0]!.totalTwd;
-    const last = points[points.length - 1]!.totalTwd;
-    const delta = last - first;
-    const pct = first > 0 ? delta / first : 0;
-    const values = points.map((p) => p.totalTwd);
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    const delta = last.totalTwd - first.totalTwd;
+    const pct = first.totalTwd > 0 ? delta / first.totalTwd : 0;
+    const btcPct =
+      first.btcTwd && last.btcTwd && first.btcTwd > 0
+        ? (last.btcTwd - first.btcTwd) / first.btcTwd
+        : null;
+    const beat = btcPct === null ? null : pct - btcPct;
+    const values = points.flatMap((p) =>
+      [p.totalTwd, p.btcTwd].filter((n): n is number => n != null),
+    );
     return {
-      first,
-      last,
+      first: first.totalTwd,
+      last: last.totalTwd,
       delta,
       pct,
+      btcPct,
+      beat,
       min: Math.min(...values),
       max: Math.max(...values),
       up: delta >= 0,
+      hasBtc: btcPct !== null,
     };
   }, [points]);
 
   const stroke = stats?.up ? "var(--color-gain)" : "var(--color-loss)";
   const fillId = stats?.up ? "trendUp" : "trendDown";
   const fillColor = stats?.up ? "var(--color-gain)" : "var(--color-loss)";
-  const yPad = stats
-    ? Math.max(200, (stats.max - stats.min) * 0.08)
-    : 0;
+  const yPad = stats ? Math.max(200, (stats.max - stats.min) * 0.08) : 0;
+
+  const verdict =
+    stats?.beat == null
+      ? null
+      : Math.abs(stats.beat) < 0.005
+        ? "這段期間跟比特幣差不多"
+        : stats.beat > 0
+          ? `媽媽比比特幣多 ${formatPct(stats.beat)}`
+          : `比特幣比較強，差 ${formatPct(Math.abs(stats.beat))}`;
 
   return (
     <section className="span-all rounded-xl bg-paper p-5 shadow-card">
@@ -115,15 +148,23 @@ export function TrendChart({ view, usdTwd }: Props) {
         <div>
           <h2 className="font-serif text-lg">資產走勢</h2>
           {stats ? (
-            <p
-              className={cn(
-                "mt-1 font-serif text-2xl tabular-nums tracking-tight",
-                stats.up ? "text-gain" : "text-loss",
-              )}
-            >
-              {formatSignedTwd(stats.delta)}{" "}
-              <span className="text-base">{formatSignedPct(stats.pct)}</span>
-            </p>
+            <>
+              <p
+                className={cn(
+                  "mt-1 font-serif text-2xl tabular-nums tracking-tight",
+                  stats.up ? "text-gain" : "text-loss",
+                )}
+              >
+                {formatSignedTwd(stats.delta)}{" "}
+                <span className="text-base">{formatSignedPct(stats.pct)}</span>
+              </p>
+              {stats.hasBtc ? (
+                <p className="mt-1 text-sm text-muted">
+                  比特幣 {formatSignedPct(stats.btcPct ?? 0)}
+                  {verdict ? ` · ${verdict}` : ""}
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className="mt-1 text-sm text-muted">
               {status === "error" ? "走勢暫時抓不到" : "正在畫這段時間…"}
@@ -148,10 +189,10 @@ export function TrendChart({ view, usdTwd }: Props) {
         </div>
       </div>
 
-      <div className="chart-hit mt-4 h-48">
+      <div className="chart-hit mt-4 h-52">
         {ready && points.length >= 3 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <ComposedChart
               data={points}
               margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
             >
@@ -188,14 +229,37 @@ export function TrendChart({ view, usdTwd }: Props) {
               <Area
                 type="monotone"
                 dataKey="totalTwd"
+                name="媽媽的資產"
                 stroke={stroke}
-                strokeWidth={2}
+                strokeWidth={2.25}
                 fill={`url(#${fillId})`}
                 dot={false}
-                activeDot={{ r: 4, fill: stroke, stroke: "var(--color-paper)", strokeWidth: 2 }}
+                activeDot={{
+                  r: 4,
+                  fill: stroke,
+                  stroke: "var(--color-paper)",
+                  strokeWidth: 2,
+                }}
                 isAnimationActive={false}
               />
-            </AreaChart>
+              <Line
+                type="monotone"
+                dataKey="btcTwd"
+                name="比特幣"
+                stroke={BTC_STROKE}
+                strokeWidth={1.75}
+                strokeDasharray="5 4"
+                dot={false}
+                activeDot={{
+                  r: 3.5,
+                  fill: BTC_STROKE,
+                  stroke: "var(--color-paper)",
+                  strokeWidth: 2,
+                }}
+                isAnimationActive={false}
+                connectNulls
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -204,8 +268,25 @@ export function TrendChart({ view, usdTwd }: Props) {
         )}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block h-0.5 w-4 rounded-pill"
+            style={{ background: stroke }}
+          />
+          媽媽的資產
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-4 border-t border-dashed"
+            style={{ borderColor: BTC_STROKE }}
+          />
+          比特幣
+        </span>
+      </div>
+
       {stats ? (
-        <div className="mt-3 flex justify-between text-xs text-faint">
+        <div className="mt-2 flex justify-between text-xs text-faint">
           <span>
             {formatMd(points[0]!.t)} · {formatTwdNumber(stats.first)}
           </span>
@@ -215,7 +296,7 @@ export function TrendChart({ view, usdTwd }: Props) {
         </div>
       ) : null}
       <p className="mt-3 text-xs leading-relaxed text-faint">
-        依現在持有的數量，用當時市價回推。不是每天實際買賣的紀錄。點圖上可以看到那一天大概值多少。
+        兩條線從同一點出發。實線是現在這包資產，虛線是同一筆錢如果全部放比特幣。依現在持有數量回推，不是每天實際買賣的紀錄。
       </p>
     </section>
   );
