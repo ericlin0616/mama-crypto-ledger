@@ -64,6 +64,18 @@ export const SYMBOL_META: Record<string, { name: string; binance: string | null 
     SYND: { name: "Syndicate", binance: "SYNDUSDT" },
     LUCE: { name: "LUCE", binance: "LUCEUSDT" },
     THRUST: { name: "THRUST", binance: "THRUSTUSDT" },
+    DOGE: { name: "狗狗幣", binance: "DOGEUSDT" },
+    XRP: { name: "XRP", binance: "XRPUSDT" },
+    LINK: { name: "Chainlink", binance: "LINKUSDT" },
+    AVAX: { name: "Avalanche", binance: "AVAXUSDT" },
+    TON: { name: "Toncoin", binance: "TONUSDT" },
+    DOT: { name: "Polkadot", binance: "DOTUSDT" },
+    UNI: { name: "Uniswap", binance: "UNIUSDT" },
+    NEAR: { name: "NEAR", binance: "NEARUSDT" },
+    AAVE: { name: "Aave", binance: "AAVEUSDT" },
+    PEPE: { name: "PEPE", binance: "PEPEUSDT" },
+    WLD: { name: "Worldcoin", binance: "WLDUSDT" },
+    TRX: { name: "TRON", binance: "TRXUSDT" },
     OTHER: { name: "其他小額資產", binance: null },
   };
 
@@ -566,6 +578,7 @@ export const HOLDINGS: Holding[] = [
 export type PriceQuote = {
   twd: number;
   usd: number;
+  change24h?: number;
 };
 
 export type PriceBook = {
@@ -583,6 +596,7 @@ export type ValuedHolding = Holding & {
   valueSource: "live" | "snapshot";
   pnlTwd: number | null;
   pnlPct: number | null;
+  change24h: number | null;
 };
 
 export type SymbolRow = {
@@ -596,6 +610,7 @@ export type SymbolRow = {
   unitPriceUsd: number | null;
   pnlTwd: number | null;
   costTwd: number | null;
+  change24h: number | null;
 };
 
 export type SourceRow = {
@@ -603,6 +618,14 @@ export type SourceRow = {
   label: string;
   valueTwd: number;
   share: number;
+};
+
+export type MajorQuote = {
+  symbol: string;
+  name: string;
+  usd: number;
+  twd: number;
+  change24h: number | null;
 };
 
 export type PortfolioView = {
@@ -617,8 +640,17 @@ export type PortfolioView = {
   pricedRatio: number;
   totalPnlTwd: number | null;
   totalCostTwd: number;
+  todayDeltaTwd: number | null;
+  todayDeltaPct: number | null;
+  majors: MajorQuote[];
   bySymbol: SymbolRow[];
   bySource: SourceRow[];
+};
+
+export type PortfolioExtras = {
+  custom?: Holding[];
+  costOverrides?: Record<string, number>;
+  hiddenIds?: string[];
 };
 
 export function snapshotUnitPrice(h: Holding): number | null {
@@ -632,15 +664,22 @@ export function valueHolding(
   holding: Holding,
   book: PriceBook | null,
   qtyOverride?: number,
+  costOverride?: number,
 ): ValuedHolding {
   const quantityUsed =
     qtyOverride !== undefined ? qtyOverride : holding.quantity;
   const quote = holding.priceKey ? book?.quotes[holding.priceKey] : undefined;
+  const costTwd =
+    costOverride !== undefined ? costOverride : holding.costTwd;
 
   let valueTwd = holding.snapshotValueTwd;
   let valueSource: "live" | "snapshot" = "snapshot";
   let unitPriceTwd = snapshotUnitPrice(holding);
   let unitPriceUsd: number | null = null;
+  const change24h =
+    quote?.change24h !== undefined && Number.isFinite(quote.change24h)
+      ? quote.change24h
+      : null;
 
   if (quote && quantityUsed !== null && quantityUsed >= 0) {
     valueTwd = quantityUsed * quote.twd;
@@ -657,10 +696,10 @@ export function valueHolding(
 
   let pnlTwd: number | null = null;
   let pnlPct: number | null = null;
-  if (holding.costTwd !== null && Number.isFinite(holding.costTwd)) {
-    pnlTwd = valueTwd - holding.costTwd;
-    if (holding.costTwd > 1) {
-      pnlPct = pnlTwd / holding.costTwd;
+  if (costTwd !== null && Number.isFinite(costTwd)) {
+    pnlTwd = valueTwd - costTwd;
+    if (costTwd > 1) {
+      pnlPct = pnlTwd / costTwd;
     }
   } else if (valueSource === "snapshot") {
     pnlTwd = holding.snapshotPnlTwd;
@@ -669,6 +708,7 @@ export function valueHolding(
 
   return {
     ...holding,
+    costTwd,
     quantityUsed,
     valueTwd,
     unitPriceTwd,
@@ -676,6 +716,7 @@ export function valueHolding(
     valueSource,
     pnlTwd,
     pnlPct,
+    change24h,
   };
 }
 
@@ -683,29 +724,61 @@ export function buildPortfolio(
   book: PriceBook | null,
   qtyOverrides: Record<string, number> = {},
   goalTwd: number = GOAL_TWD,
+  extras: PortfolioExtras = {},
 ): PortfolioView {
-  const holdings = HOLDINGS.map((h) =>
-    valueHolding(h, book, qtyOverrides[h.id]),
+  const hidden = new Set(extras.hiddenIds ?? []);
+  const merged: Holding[] = [...HOLDINGS, ...(extras.custom ?? [])].map((h) =>
+    hidden.has(h.id) ? { ...h, hidden: true } : h,
   );
-  const visible = holdings
-    .filter((h) => !h.hidden && h.valueTwd >= 0.01)
+  const holdings = merged.map((h) =>
+    valueHolding(h, book, qtyOverrides[h.id], extras.costOverrides?.[h.id]),
+  );
+  const counted = holdings.filter((h) => !h.hidden);
+  const visible = counted
+    .filter((h) => h.valueTwd >= 0.01)
     .sort((a, b) => b.valueTwd - a.valueTwd);
 
   const safeGoal = goalTwd > 0 ? goalTwd : GOAL_TWD;
-  const totalTwd = holdings.reduce((sum, h) => sum + h.valueTwd, 0);
+  const totalTwd = counted.reduce((sum, h) => sum + h.valueTwd, 0);
   const gapTwd = safeGoal - totalTwd;
   const progress = totalTwd / safeGoal;
   const neededRatio = totalTwd > 0 ? Math.max(0, gapTwd) / totalTwd : 0;
   const liveCount = holdings.filter((h) => h.valueSource === "live").length;
   const pricedRatio = holdings.length ? liveCount / holdings.length : 0;
 
-  const withCost = holdings.filter((h) => h.costTwd !== null);
+  const withCost = counted.filter((h) => h.costTwd !== null);
   const totalCostTwd = withCost.reduce((sum, h) => sum + (h.costTwd ?? 0), 0);
-  const pnlParts = holdings.filter((h) => h.pnlTwd !== null);
+  const pnlParts = counted.filter((h) => h.pnlTwd !== null);
   const totalPnlTwd =
     pnlParts.length > 0
       ? pnlParts.reduce((sum, h) => sum + (h.pnlTwd ?? 0), 0)
       : null;
+
+  let todayBase = 0;
+  let todayNow = 0;
+  for (const h of counted) {
+    if (h.change24h === null || h.valueTwd <= 0) continue;
+    const ratio = h.change24h;
+    const prev = h.valueTwd / (1 + ratio);
+    todayBase += prev;
+    todayNow += h.valueTwd;
+  }
+  const todayDeltaTwd = todayBase > 0 ? todayNow - todayBase : null;
+  const todayDeltaPct =
+    todayBase > 0 && todayDeltaTwd !== null ? todayDeltaTwd / todayBase : null;
+
+  const majors: MajorQuote[] = [];
+  for (const symbol of ["BTC", "ETH", "SOL"]) {
+    const quote = book?.quotes[symbol];
+    if (!quote) continue;
+    majors.push({
+      symbol,
+      name: SYMBOL_META[symbol]?.name ?? symbol,
+      usd: quote.usd,
+      twd: quote.twd,
+      change24h: quote.change24h ?? null,
+    });
+  }
 
   const symbolMap = new Map<string, ValuedHolding[]>();
   for (const h of holdings) {
@@ -742,13 +815,14 @@ export function buildPortfolio(
         unitPriceUsd: priced?.unitPriceUsd ?? null,
         pnlTwd,
         costTwd,
+        change24h: priced?.change24h ?? null,
       };
     })
     .filter((row) => row.valueTwd >= 0.01)
     .sort((a, b) => b.valueTwd - a.valueTwd);
 
   const sourceMap = new Map<SourceId, number>();
-  for (const h of holdings) {
+  for (const h of counted) {
     sourceMap.set(h.source, (sourceMap.get(h.source) ?? 0) + h.valueTwd);
   }
   const bySource: SourceRow[] = [...sourceMap.entries()]
@@ -773,6 +847,9 @@ export function buildPortfolio(
     pricedRatio,
     totalPnlTwd,
     totalCostTwd,
+    todayDeltaTwd,
+    todayDeltaPct,
+    majors,
     bySymbol,
     bySource,
   };

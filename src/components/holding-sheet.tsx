@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { formatPct, formatQty, formatSignedPct, formatTwd, formatUsd } from "@/lib/format";
+import {
+  formatPct,
+  formatQty,
+  formatSignedPct,
+  formatTwd,
+  formatUsd,
+} from "@/lib/format";
 import { SOURCES, growthNeeded, type ValuedHolding } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +18,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   qtyOverride?: number;
   onSaveQty: (id: string, qty: number | null) => void;
+  onSaveCost: (id: string, cost: number | null) => void;
+  onHide: (id: string) => void;
 };
 
 export function HoldingSheet({
@@ -22,13 +30,17 @@ export function HoldingSheet({
   onOpenChange,
   qtyOverride,
   onSaveQty,
+  onSaveCost,
+  onHide,
 }: Props) {
   const [draft, setDraft] = useState("");
+  const [costDraft, setCostDraft] = useState("");
 
   useEffect(() => {
     if (!holding) return;
     const q = qtyOverride ?? holding.quantity;
     setDraft(q === null || q === undefined ? "" : String(q));
+    setCostDraft(holding.costTwd === null ? "" : String(Math.round(holding.costTwd)));
   }, [holding, qtyOverride]);
 
   useEffect(() => {
@@ -75,6 +87,9 @@ export function HoldingSheet({
           </p>
           <p className="mt-1 text-xs text-faint">
             {holding.valueSource === "live" ? "即時市價" : "截圖估值"}
+            {holding.change24h !== null
+              ? ` · 今日 ${formatSignedPct(holding.change24h)}`
+              : ""}
           </p>
 
           <dl className="mt-5 grid grid-cols-2 gap-2">
@@ -144,50 +159,71 @@ export function HoldingSheet({
             </p>
           ) : null}
 
-          {holding.quantity !== null ? (
-            <form
-              className="mt-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const n = Number(draft);
-                if (!Number.isFinite(n) || n < 0) return;
-                onSaveQty(holding.id, n);
-                onOpenChange(false);
-              }}
-            >
-              <label className="text-sm font-medium" htmlFor="qty">
-                更新持有數量
-              </label>
-              <p className="mt-1 text-xs text-faint">
-                買進或轉出後可以改這裡，市值會依最新價格重算。
-              </p>
-              <input
-                id="qty"
-                inputMode="decimal"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="mt-3 h-12 w-full rounded-md bg-bg px-3 text-base tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
-              />
-              <div className="mt-3 flex gap-2">
-                <Button type="submit" className="flex-1">
-                  儲存數量
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => {
-                    onSaveQty(holding.id, null);
-                    onOpenChange(false);
-                  }}
-                >
-                  恢復截圖
-                </Button>
-              </div>
-            </form>
-          ) : null}
+          <form
+            className="mt-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = Number(draft);
+              if (Number.isFinite(n) && n >= 0) onSaveQty(holding.id, n);
+              const c = Number(costDraft);
+              if (costDraft.trim() === "") onSaveCost(holding.id, null);
+              else if (Number.isFinite(c) && c >= 0) onSaveCost(holding.id, c);
+              onOpenChange(false);
+            }}
+          >
+            <label className="text-sm font-medium" htmlFor="qty">
+              持有數量
+            </label>
+            <input
+              id="qty"
+              inputMode="decimal"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="mt-2 h-12 w-full rounded-md bg-bg px-3 text-base tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+            />
+            <label className="mt-4 block text-sm font-medium" htmlFor="cost">
+              買進成本（台幣）
+            </label>
+            <p className="mt-1 text-xs text-faint">記得成本，損益才會準。</p>
+            <input
+              id="cost"
+              inputMode="numeric"
+              value={costDraft}
+              onChange={(e) => setCostDraft(e.target.value)}
+              placeholder="沒有紀錄可留空"
+              className="mt-2 h-12 w-full rounded-md bg-bg px-3 text-base tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+            />
+            <div className="mt-3 flex gap-2">
+              <Button type="submit" className="flex-1">
+                儲存
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  onSaveQty(holding.id, null);
+                  onSaveCost(holding.id, null);
+                  onOpenChange(false);
+                }}
+              >
+                恢復截圖
+              </Button>
+            </div>
+          </form>
 
-          <p className="mt-6 text-xs text-faint">
+          <button
+            type="button"
+            onClick={() => {
+              onHide(holding.id);
+              onOpenChange(false);
+            }}
+            className="mt-4 w-full py-3 text-sm text-muted"
+          >
+            這筆先不要顯示
+          </button>
+
+          <p className="mt-2 text-xs text-faint">
             目標 {formatTwd(goalTwd)} · 僅供整理持倉，不是投資建議。
           </p>
         </div>

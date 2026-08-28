@@ -1,74 +1,119 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BookOpen, RefreshCw, Target, Wallet } from "lucide-react";
+import { AddEntrySheet } from "@/components/add-entry-sheet";
 import { GoalPanel } from "@/components/goal-panel";
 import { HoldingSheet } from "@/components/holding-sheet";
 import { HoldingsPanel } from "@/components/holdings-panel";
 import { OverviewPanel } from "@/components/overview-panel";
 import { usePrices } from "@/hooks/use-prices";
 import { formatTime } from "@/lib/format";
-import { GOAL_TWD, buildPortfolio } from "@/lib/portfolio";
+import {
+  applyTrade,
+  loadCost,
+  loadCustom,
+  loadGoal,
+  loadHidden,
+  loadHistory,
+  loadLastVisit,
+  loadQty,
+  recordHistory,
+  saveCost,
+  saveCustom,
+  saveGoal,
+  saveHidden,
+  saveLastVisit,
+  saveQty,
+  type HistoryPoint,
+  type LastVisit,
+} from "@/lib/ledger-store";
+import { GOAL_TWD, HOLDINGS, buildPortfolio, type Holding } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 
 type Tab = "home" | "holdings" | "goal";
 
-const QTY_KEY = "mama-ledger-qty-v1";
-const GOAL_KEY = "mama-ledger-goal-v1";
-
-function loadQty(): Record<string, number> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(QTY_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, number>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function loadGoal(): number {
-  if (typeof window === "undefined") return GOAL_TWD;
-  try {
-    const raw = window.localStorage.getItem(GOAL_KEY);
-    const n = raw ? Number(raw) : GOAL_TWD;
-    return Number.isFinite(n) && n >= 1000 ? n : GOAL_TWD;
-  } catch {
-    return GOAL_TWD;
-  }
-}
-
 export function LedgerApp() {
-  const { book, status, refresh } = usePrices();
-  const [tab, setTab] = useState<Tab>("home");
   const [qty, setQty] = useState<Record<string, number>>({});
+  const [cost, setCost] = useState<Record<string, number>>({});
+  const [custom, setCustom] = useState<Holding[]>([]);
+  const [hidden, setHidden] = useState<string[]>([]);
   const [goalTwd, setGoalTwd] = useState(GOAL_TWD);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState<Tab>("home");
+
+  const extraSymbols = useMemo(
+    () => custom.map((h) => h.symbol),
+    [custom],
+  );
+  const { book, status, refresh } = usePrices(extraSymbols);
 
   useEffect(() => {
     setQty(loadQty());
-    setGoalTwd(loadGoal());
+    setCost(loadCost());
+    setCustom(loadCustom());
+    setHidden(loadHidden());
+    setGoalTwd(loadGoal(GOAL_TWD));
+    setHistory(loadHistory());
+    setLastVisit(loadLastVisit());
   }, []);
 
   const view = useMemo(
-    () => buildPortfolio(book, qty, goalTwd),
-    [book, qty, goalTwd],
+    () =>
+      buildPortfolio(book, qty, goalTwd, {
+        custom,
+        costOverrides: cost,
+        hiddenIds: hidden,
+      }),
+    [book, qty, goalTwd, custom, cost, hidden],
   );
   const selected = view.holdings.find((h) => h.id === selectedId) ?? null;
   const live = status === "live";
 
-  const saveQty = (id: string, next: number | null) => {
-    setQty((prev) => {
-      const copy = { ...prev };
-      if (next === null) delete copy[id];
-      else copy[id] = next;
-      window.localStorage.setItem(QTY_KEY, JSON.stringify(copy));
-      return copy;
-    });
+  useEffect(() => {
+    if (view.totalTwd < 1) return;
+    const id = window.setTimeout(() => {
+      setHistory(recordHistory(view.totalTwd));
+      saveLastVisit(view.totalTwd);
+    }, 8000);
+    return () => window.clearTimeout(id);
+  }, [view.totalTwd]);
+
+  const persistQty = (next: Record<string, number>) => {
+    setQty(next);
+    saveQty(next);
+  };
+  const persistCost = (next: Record<string, number>) => {
+    setCost(next);
+    saveCost(next);
   };
 
-  const saveGoal = (value: number) => {
-    setGoalTwd(value);
-    window.localStorage.setItem(GOAL_KEY, String(value));
+  const saveQtyOne = (id: string, next: number | null) => {
+    const copy = { ...qty };
+    if (next === null) delete copy[id];
+    else copy[id] = next;
+    persistQty(copy);
+  };
+
+  const saveCostOne = (id: string, next: number | null) => {
+    const copy = { ...cost };
+    if (next === null) delete copy[id];
+    else copy[id] = next;
+    persistCost(copy);
+    if (id.startsWith("custom-")) {
+      const updated = custom.map((h) =>
+        h.id === id ? { ...h, costTwd: next } : h,
+      );
+      setCustom(updated);
+      saveCustom(updated);
+    }
+  };
+
+  const hideOne = (id: string) => {
+    const next = hidden.includes(id) ? hidden : [...hidden, id];
+    setHidden(next);
+    saveHidden(next);
   };
 
   return (
@@ -108,21 +153,28 @@ export function LedgerApp() {
             <OverviewPanel
               view={view}
               live={live}
+              lastVisit={lastVisit}
+              history={history}
               onOpenGoal={() => setTab("goal")}
               onOpenHoldings={() => setTab("holdings")}
+              onAddEntry={() => setAdding(true)}
             />
           ) : null}
           {tab === "holdings" ? (
             <HoldingsPanel
               view={view}
               onSelect={(id) => setSelectedId(id)}
+              onAddEntry={() => setAdding(true)}
             />
           ) : null}
           {tab === "goal" ? (
             <GoalPanel
               view={view}
               goalTwd={goalTwd}
-              onGoalChange={saveGoal}
+              onGoalChange={(value) => {
+                setGoalTwd(value);
+                saveGoal(value);
+              }}
             />
           ) : null}
         </main>
@@ -160,7 +212,31 @@ export function LedgerApp() {
           if (!open) setSelectedId(null);
         }}
         qtyOverride={selectedId ? qty[selectedId] : undefined}
-        onSaveQty={saveQty}
+        onSaveQty={saveQtyOne}
+        onSaveCost={saveCostOne}
+        onHide={hideOne}
+      />
+
+      <AddEntrySheet
+        open={adding}
+        onOpenChange={setAdding}
+        onSubmit={(entry) => {
+          const next = applyTrade({
+            holdings: HOLDINGS,
+            custom,
+            qty,
+            cost,
+            hidden,
+            entry,
+          });
+          persistQty(next.qty);
+          persistCost(next.cost);
+          setCustom(next.custom);
+          saveCustom(next.custom);
+          setHidden(next.hidden);
+          saveHidden(next.hidden);
+          setTab("holdings");
+        }}
       />
     </div>
   );

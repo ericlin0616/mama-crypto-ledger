@@ -46,6 +46,12 @@ export function formatSignedPct(ratio: number): string {
   return `${sign}${formatPct(ratio)}`;
 }
 
+export function formatSignedTwd(value: number): string {
+  if (!Number.isFinite(value) || Math.abs(value) < 0.5) return formatTwd(0);
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${formatTwd(value)}`;
+}
+
 export function formatUsd(value: number, digits = 0): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -69,5 +75,24 @@ export function formatTime(ts: number): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+  }).format(new Date(ts));
+}
+
+export function formatRelative(ts: number): string {
+  const mins = Math.round((Date.now() - ts) / 60_000);
+  if (mins < 1) return "剛剛";
+  if (mins < 60) return `${mins} 分鐘前`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} 小時前`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "昨天";
+  return `${days} 天前`;
+}
+
+export function formatMd(ts: number): string {
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    month: "numeric",
+    day: "numeric",
   }).format(new Date(ts));
 }

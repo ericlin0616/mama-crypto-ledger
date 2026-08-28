@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
-import { formatPct, formatQty, formatSignedPct, formatTwd } from "@/lib/format";
+import { Plus } from "lucide-react";
+import {
+  formatPct,
+  formatQty,
+  formatSignedPct,
+  formatTwd,
+} from "@/lib/format";
 import {
   SOURCES,
   type SourceId,
@@ -21,9 +27,10 @@ const FILTERS: { id: "all" | SourceId; label: string }[] = [
 type Props = {
   view: PortfolioView;
   onSelect: (id: string) => void;
+  onAddEntry: () => void;
 };
 
-export function HoldingsPanel({ view, onSelect }: Props) {
+export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [mode, setMode] = useState<"coin" | "account">("coin");
 
@@ -44,6 +51,7 @@ export function HoldingsPanel({ view, onSelect }: Props) {
           row.costTwd && row.costTwd > 1 && row.pnlTwd !== null
             ? row.pnlTwd / row.costTwd
             : null,
+        change24h: row.change24h,
         share: row.share,
         holdingId: view.visible.find((h) => h.symbol === row.symbol)?.id ?? null,
       }));
@@ -65,6 +73,15 @@ export function HoldingsPanel({ view, onSelect }: Props) {
             </ModeBtn>
           </div>
         </div>
+        <button
+          type="button"
+          onPointerDown={onAddEntry}
+          onClick={onAddEntry}
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-accent text-accent-fg text-sm font-medium"
+        >
+          <Plus className="size-4" />
+          記一筆買進或賣出
+        </button>
         <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1">
           {FILTERS.map((f) => (
             <button
@@ -105,14 +122,18 @@ export function HoldingsPanel({ view, onSelect }: Props) {
                   <span
                     className={cn(
                       "block text-xs tabular-nums",
-                      row.pnlPct === null
+                      (row.change24h ?? row.pnlPct) === null
                         ? "text-faint"
-                        : row.pnlPct >= 0
+                        : (row.change24h ?? row.pnlPct ?? 0) >= 0
                           ? "text-gain"
                           : "text-loss",
                     )}
                   >
-                    {row.pnlPct === null ? formatPct(row.share) : formatSignedPct(row.pnlPct)}
+                    {row.change24h !== null
+                      ? `今日 ${formatSignedPct(row.change24h)}`
+                      : row.pnlPct === null
+                        ? formatPct(row.share)
+                        : formatSignedPct(row.pnlPct)}
                   </span>
                 </span>
               </button>
@@ -194,7 +215,19 @@ function HoldingRow({
           {holding.quantityUsed !== null ? formatQty(holding.quantityUsed) : holding.symbol}
         </span>
       </span>
-      <span className="text-right text-sm tabular-nums">{formatTwd(holding.valueTwd)}</span>
+      <span className="text-right">
+        <span className="block text-sm tabular-nums">{formatTwd(holding.valueTwd)}</span>
+        {holding.change24h !== null ? (
+          <span
+            className={cn(
+              "block text-xs tabular-nums",
+              holding.change24h >= 0 ? "text-gain" : "text-loss",
+            )}
+          >
+            {formatSignedPct(holding.change24h)}
+          </span>
+        ) : null}
+      </span>
     </button>
   );
 }
