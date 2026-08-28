@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { ChevronRight, Plus, Share2 } from "lucide-react";
 import { ProgressRing } from "@/components/progress-ring";
-import { Sparkline } from "@/components/sparkline";
+import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
 import {
   formatGoalShort,
@@ -15,7 +15,7 @@ import {
   formatUsd,
   formatWan,
 } from "@/lib/format";
-import type { HistoryPoint, LastVisit } from "@/lib/ledger-store";
+import type { LastVisit } from "@/lib/ledger-store";
 import { SOURCES, type PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ type Props = {
   view: PortfolioView;
   live: boolean;
   lastVisit: LastVisit | null;
-  history: HistoryPoint[];
+  usdTwd: number | null;
   onOpenGoal: () => void;
   onOpenHoldings: () => void;
   onAddEntry: () => void;
@@ -68,7 +68,7 @@ export function OverviewPanel({
   view,
   live,
   lastVisit,
-  history,
+  usdTwd,
   onOpenGoal,
   onOpenHoldings,
   onAddEntry,
@@ -205,6 +205,8 @@ export function OverviewPanel({
         </div>
       </section>
 
+      <TrendChart view={view} usdTwd={usdTwd} />
+
       {view.majors.length > 0 ? (
         <section className="rounded-xl bg-paper p-5 shadow-card">
           <h2 className="font-serif text-lg">現在行情</h2>
@@ -237,8 +239,6 @@ export function OverviewPanel({
           </ul>
         </section>
       ) : null}
-
-      <Sparkline points={history} />
 
       <section className="rounded-xl bg-paper p-5 shadow-card">
         <div className="flex items-end justify-between">

@@ -154,7 +154,7 @@ export function LedgerApp() {
               view={view}
               live={live}
               lastVisit={lastVisit}
-              history={history}
+              usdTwd={book?.usdTwd ?? null}
               onOpenGoal={() => setTab("goal")}
               onOpenHoldings={() => setTab("holdings")}
               onAddEntry={() => setAdding(true)}
