@@ -6,6 +6,7 @@ import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
 import {
   formatGoalShort,
+  formatGoalWan,
   formatPct,
   formatRelative,
   formatSignedPct,
@@ -30,7 +31,6 @@ const SLICE_COLORS = [
 
 type Props = {
   view: PortfolioView;
-  live: boolean;
   lastVisit: LastVisit | null;
   usdTwd: number | null;
   onOpenGoal: () => void;
@@ -66,7 +66,6 @@ function buildSummary(view: PortfolioView): string {
 
 export function OverviewPanel({
   view,
-  live,
   lastVisit,
   usdTwd,
   onOpenGoal,
@@ -118,15 +117,16 @@ export function OverviewPanel({
         <p className="mt-1 font-serif text-5xl leading-tight tracking-tight tabular-nums">
           {formatTwdNumber(view.totalTwd)}
         </p>
-        <p className="mt-1 text-sm text-faint">
-          新台幣 · {live ? "即時市價" : "依截圖估值"}
-        </p>
 
         <ProgressRing progress={view.progress} className="mt-5">
           <p className="font-serif text-3xl tabular-nums leading-none">
             {formatPct(Math.min(view.progress, 9.99), 0)}
           </p>
-          <p className="mt-1 text-xs text-muted">往 {formatGoalShort(goal)}</p>
+          <p className="mt-1 text-[11px] leading-snug text-muted">
+            媽媽的目標
+            <br />
+            {formatGoalWan(goal)}全賣
+          </p>
         </ProgressRing>
 
         <div className="mt-4 grid grid-cols-2 gap-2">

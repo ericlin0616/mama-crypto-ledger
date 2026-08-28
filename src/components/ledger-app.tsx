@@ -152,7 +152,6 @@ export function LedgerApp() {
           {tab === "home" ? (
             <OverviewPanel
               view={view}
-              live={live}
               lastVisit={lastVisit}
               usdTwd={book?.usdTwd ?? null}
               onOpenGoal={() => setTab("goal")}

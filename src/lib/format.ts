@@ -34,6 +34,14 @@ export function formatGoalShort(value: number): string {
   return formatTwdNumber(value);
 }
 
+export function formatGoalWan(value: number): string {
+  const wan = value / 10_000;
+  if (Math.abs(wan - Math.round(wan)) < 0.05) {
+    return `${Math.round(wan)}萬`;
+  }
+  return `${wan.toFixed(1)}萬`;
+}
+
 export function formatPct(ratio: number, digits?: number): string {
   const pct = ratio * 100;
   const resolved = digits ?? (Math.abs(pct) >= 10 ? 0 : 1);
