@@ -54,7 +54,7 @@ export function CoinMark({ symbol, name, className }: Props) {
     return (
       <span
         className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-full bg-ink font-serif text-xs text-paper",
+          "coin-mark flex size-10 shrink-0 items-center justify-center rounded-full font-serif text-xs",
           className,
         )}
       >
@@ -66,7 +66,7 @@ export function CoinMark({ symbol, name, className }: Props) {
   return (
     <span
       className={cn(
-        "relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-paper shadow-card ring-1 ring-line",
+        "coin-mark relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full p-0.5",
         className,
       )}
     >
@@ -75,7 +75,7 @@ export function CoinMark({ symbol, name, className }: Props) {
         alt=""
         width={40}
         height={40}
-        className="size-full object-cover"
+        className="size-full object-contain"
         onError={() => setBroken(true)}
       />
     </span>
