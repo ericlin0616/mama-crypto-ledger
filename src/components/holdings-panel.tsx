@@ -7,8 +7,10 @@ import {
   formatSignedPct,
   formatTwd,
   formatTwdNumber,
+  formatUsd,
 } from "@/lib/format";
 import {
+  isStableSymbol,
   type SourceId,
   type ValuedHolding,
   type PortfolioView,
@@ -55,6 +57,14 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
     return view.bySymbol
       .filter((row) => {
         if (filter === "all") return true;
+        if (row.grouped) {
+          return view.holdings.some(
+            (h) =>
+              isStableSymbol(h.symbol) &&
+              h.source === filter &&
+              h.valueTwd >= 0.01,
+          );
+        }
         return view.holdings.some(
           (h) => h.symbol === row.symbol && h.source === filter && h.valueTwd >= 0.01,
         );
@@ -62,15 +72,25 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
       .map((row) => ({
         key: row.symbol,
         title: row.name,
-        subtitle: `${row.symbol}${row.quantity !== null ? ` · ${formatQty(row.quantity)}` : ""}`,
+        subtitle: row.grouped
+          ? row.valueUsd !== null
+            ? `約 ${formatUsd(row.valueUsd, row.valueUsd >= 100 ? 0 : 2)}`
+            : "美元穩定幣"
+          : `${row.symbol}${row.quantity !== null ? ` · ${formatQty(row.quantity)}` : ""}`,
         value: row.valueTwd,
+        valueUsd: row.valueUsd,
+        grouped: row.grouped,
+        parts: row.parts,
+        usdTwd: view.usdTwd,
         pnlPct:
           row.costTwd && row.costTwd > 1 && row.pnlTwd !== null
             ? row.pnlTwd / row.costTwd
             : null,
         change24h: row.change24h,
         share: row.share,
-        holdingId: view.visible.find((h) => h.symbol === row.symbol)?.id ?? null,
+        holdingId: row.grouped
+          ? null
+          : view.visible.find((h) => h.symbol === row.symbol)?.id ?? null,
       }));
   }, [filter, view]);
 
@@ -198,12 +218,12 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
       {mode === "coin" ? (
         <ul className="flex flex-col gap-2">
           {coinRows.map((row, i) => (
-            <li key={row.key}>
+            <li key={row.key} className="rounded-xl bg-paper shadow-card">
               <button
                 type="button"
                 onPointerDown={() => row.holdingId && onSelect(row.holdingId)}
                 onClick={() => row.holdingId && onSelect(row.holdingId)}
-                className="flex w-full min-h-16 items-center gap-3 rounded-xl bg-paper px-4 py-3 text-left shadow-card transition-transform duration-150 ease-out active:scale-[0.99]"
+                className="flex w-full min-h-16 items-center gap-3 px-4 py-3 text-left transition-transform duration-150 ease-out active:scale-[0.99]"
               >
                 <span
                   className="flex size-10 shrink-0 items-center justify-center rounded-md font-serif text-xs text-paper"
@@ -216,25 +236,51 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                   <span className="block truncate text-xs text-faint">{row.subtitle}</span>
                 </span>
                 <span className="text-right">
-                  <span className="block text-sm tabular-nums">{formatTwd(row.value)}</span>
+                  <span className="block text-sm tabular-nums">
+                    {row.grouped ? `換成 ${formatTwd(row.value)}` : formatTwd(row.value)}
+                  </span>
                   <span
                     className={cn(
                       "block text-xs tabular-nums",
-                      (row.change24h ?? row.pnlPct) === null
+                      row.grouped
                         ? "text-faint"
-                        : (row.change24h ?? row.pnlPct ?? 0) >= 0
-                          ? "text-gain"
-                          : "text-loss",
+                        : (row.change24h ?? row.pnlPct) === null
+                          ? "text-faint"
+                          : (row.change24h ?? row.pnlPct ?? 0) >= 0
+                            ? "text-gain"
+                            : "text-loss",
                     )}
                   >
-                    {row.change24h !== null
-                      ? `今日 ${formatSignedPct(row.change24h)}`
-                      : row.pnlPct === null
-                        ? formatPct(row.share)
-                        : formatSignedPct(row.pnlPct)}
+                    {row.grouped
+                      ? row.usdTwd
+                        ? `1 美元 = ${formatTwd(row.usdTwd)}`
+                        : "依即時匯率"
+                      : row.change24h !== null
+                        ? `今日 ${formatSignedPct(row.change24h)}`
+                        : row.pnlPct === null
+                          ? formatPct(row.share)
+                          : formatSignedPct(row.pnlPct)}
                   </span>
                 </span>
               </button>
+              {row.grouped && row.parts.length > 1 ? (
+                <ul className="border-t border-line px-4 py-2">
+                  {row.parts.map((part) => (
+                    <li
+                      key={part.symbol}
+                      className="flex items-baseline justify-between gap-3 py-1.5 text-xs"
+                    >
+                      <span className="text-muted">
+                        {part.symbol}
+                        {part.quantity !== null ? ` · ${formatQty(part.quantity)}` : ""}
+                      </span>
+                      <span className="tabular-nums text-faint">
+                        換成 {formatTwd(part.valueTwd)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
           {coinRows.length === 0 ? (
@@ -247,6 +293,11 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
         <div className="flex flex-col gap-3">
           {groups.map((g, i) => {
             const items = view.visible.filter((h) => h.source === g.source);
+            const stables = items.filter((h) => isStableSymbol(h.symbol));
+            const rest = items.filter((h) => !isStableSymbol(h.symbol));
+            const stableTwd = stables.reduce((s, h) => s + h.valueTwd, 0);
+            const stableUsd =
+              view.usdTwd && view.usdTwd > 0 ? stableTwd / view.usdTwd : null;
             return (
               <section key={g.source} className="rounded-xl bg-paper p-4 shadow-card">
                 <div className="mb-2 flex items-baseline justify-between">
@@ -260,7 +311,31 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                   <p className="text-sm tabular-nums text-muted">{formatTwd(g.valueTwd)}</p>
                 </div>
                 <ul className="divide-y divide-line">
-                  {items.map((h) => (
+                  {stableTwd >= 0.01 ? (
+                    <li className="py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>
+                          <span className="block text-sm">穩定幣</span>
+                          <span className="block text-xs text-faint">
+                            {stableUsd !== null
+                              ? `約 ${formatUsd(stableUsd, stableUsd >= 100 ? 0 : 2)}`
+                              : stables.map((h) => h.symbol).join(" · ")}
+                          </span>
+                        </span>
+                        <span className="text-right">
+                          <span className="block text-sm tabular-nums">
+                            換成 {formatTwd(stableTwd)}
+                          </span>
+                          {view.usdTwd ? (
+                            <span className="block text-xs tabular-nums text-faint">
+                              1 美元 = {formatTwd(view.usdTwd)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </div>
+                    </li>
+                  ) : null}
+                  {rest.map((h) => (
                     <li key={h.id}>
                       <HoldingRow holding={h} onSelect={onSelect} />
                     </li>

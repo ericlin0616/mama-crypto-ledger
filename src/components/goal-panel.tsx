@@ -413,7 +413,7 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
         <h2 className="font-serif text-lg">各幣若要獨自補上缺口</h2>
         <p className="mt-1 text-sm text-muted">其他維持現價時，單一幣種需要漲多少。</p>
         <ul className="mt-4 divide-y divide-line">
-          {view.bySymbol.slice(0, 8).map((row) => {
+          {view.bySymbol.filter((row) => !row.grouped).slice(0, 8).map((row) => {
             const ratio = growthNeeded(Math.max(0, view.gapTwd), row.valueTwd);
             const hard = ratio > 1.5;
             return (

@@ -45,6 +45,20 @@ export const SOURCES: Record<
   mexc: { label: "MEXC 現貨", short: "MEXC", kind: "exchange" },
 };
 
+export const STABLE_SYMBOLS = new Set([
+  "USDT",
+  "USDC",
+  "USD1",
+  "USDT-TYB",
+  "FDUSD",
+  "DAI",
+  "USDE",
+]);
+
+export function isStableSymbol(symbol: string): boolean {
+  return STABLE_SYMBOLS.has(symbol);
+}
+
 export const SYMBOL_META: Record<string, { name: string; binance: string | null }> =
   {
     BTC: { name: "比特幣", binance: "BTCUSDT" },
@@ -622,6 +636,7 @@ export type SymbolRow = {
   name: string;
   quantity: number | null;
   valueTwd: number;
+  valueUsd: number | null;
   share: number;
   sources: number;
   unitPriceTwd: number | null;
@@ -629,6 +644,8 @@ export type SymbolRow = {
   pnlTwd: number | null;
   costTwd: number | null;
   change24h: number | null;
+  grouped: boolean;
+  parts: { symbol: string; name: string; valueTwd: number; quantity: number | null }[];
 };
 
 export type SourceRow = {
@@ -665,6 +682,7 @@ export type PortfolioView = {
   majors: MajorQuote[];
   bySymbol: SymbolRow[];
   bySource: SourceRow[];
+  usdTwd: number | null;
 };
 
 export type PortfolioExtras = {
@@ -810,16 +828,19 @@ export function buildPortfolio(
     });
   }
 
+  const usdTwd = book?.usdTwd ?? null;
   const symbolMap = new Map<string, ValuedHolding[]>();
   for (const h of holdings) {
     if (h.hidden) continue;
-    const list = symbolMap.get(h.symbol) ?? [];
+    const key = isStableSymbol(h.symbol) ? "STABLE" : h.symbol;
+    const list = symbolMap.get(key) ?? [];
     list.push(h);
-    symbolMap.set(h.symbol, list);
+    symbolMap.set(key, list);
   }
 
   const bySymbol: SymbolRow[] = [...symbolMap.entries()]
     .map(([symbol, list]) => {
+      const grouped = symbol === "STABLE";
       const valueTwd = list.reduce((s, h) => s + h.valueTwd, 0);
       const qtyVals = list
         .map((h) => h.quantityUsed)
@@ -834,18 +855,44 @@ export function buildPortfolio(
         ? pnlPartsInner.reduce((s, h) => s + (h.pnlTwd ?? 0), 0)
         : null;
       const priced = list.find((h) => h.unitPriceTwd !== null);
+      const valueUsd =
+        usdTwd && usdTwd > 0
+          ? valueTwd / usdTwd
+          : null;
+      const partMap = new Map<
+        string,
+        { name: string; valueTwd: number; quantity: number | null }
+      >();
+      for (const h of list) {
+        const prev = partMap.get(h.symbol);
+        const qty =
+          h.quantityUsed !== null
+            ? (prev?.quantity ?? 0) + h.quantityUsed
+            : prev?.quantity ?? null;
+        partMap.set(h.symbol, {
+          name: h.name,
+          valueTwd: (prev?.valueTwd ?? 0) + h.valueTwd,
+          quantity: qty,
+        });
+      }
+      const parts = [...partMap.entries()]
+        .map(([partSymbol, part]) => ({ symbol: partSymbol, ...part }))
+        .sort((a, b) => b.valueTwd - a.valueTwd);
       return {
         symbol,
-        name: list[0]?.name ?? symbol,
+        name: grouped ? "穩定幣" : (list[0]?.name ?? symbol),
         quantity,
         valueTwd,
+        valueUsd,
         share: totalTwd > 0 ? valueTwd / totalTwd : 0,
         sources: list.length,
-        unitPriceTwd: priced?.unitPriceTwd ?? null,
-        unitPriceUsd: priced?.unitPriceUsd ?? null,
+        unitPriceTwd: grouped ? usdTwd : (priced?.unitPriceTwd ?? null),
+        unitPriceUsd: grouped ? 1 : (priced?.unitPriceUsd ?? null),
         pnlTwd,
         costTwd,
-        change24h: priced?.change24h ?? null,
+        change24h: grouped ? 0 : (priced?.change24h ?? null),
+        grouped,
+        parts,
       };
     })
     .filter((row) => row.valueTwd >= 0.01)
@@ -884,6 +931,7 @@ export function buildPortfolio(
     majors,
     bySymbol,
     bySource,
+    usdTwd,
   };
 }
 

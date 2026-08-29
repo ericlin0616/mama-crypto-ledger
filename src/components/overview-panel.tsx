@@ -79,8 +79,15 @@ export function OverviewPanel({
   const top = view.bySymbol.slice(0, 5);
   const restValue = view.bySymbol.slice(5).reduce((s, r) => s + r.valueTwd, 0);
   const pieData = [
-    ...top.map((row) => ({ name: row.name, value: row.valueTwd })),
-    ...(restValue > 0 ? [{ name: "其他", value: restValue }] : []),
+    ...top.map((row) => ({
+      name: row.name,
+      value: row.valueTwd,
+      grouped: row.grouped,
+      valueUsd: row.valueUsd,
+    })),
+    ...(restValue > 0
+      ? [{ name: "其他", value: restValue, grouped: false, valueUsd: null as number | null }]
+      : []),
   ];
   const visitDelta =
     lastVisit && lastVisit.totalTwd > 0 && Date.now() - lastVisit.t > 3 * 60_000
@@ -245,7 +252,9 @@ export function OverviewPanel({
                     />
                     {row.name}
                   </span>
-                  <span className="text-sm tabular-nums">{formatTwd(row.value)}</span>
+                  <span className="text-sm tabular-nums">
+                    {row.grouped ? `換成 ${formatTwd(row.value)}` : formatTwd(row.value)}
+                  </span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
                   <div
@@ -256,7 +265,12 @@ export function OverviewPanel({
                     }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-faint">{formatPct(share)}</p>
+                <p className="mt-1 text-xs text-faint">
+                  {formatPct(share)}
+                  {row.grouped && row.valueUsd !== null
+                    ? ` · 約 ${formatUsd(row.valueUsd, row.valueUsd >= 100 ? 0 : 2)}`
+                    : ""}
+                </p>
               </li>
             );
           })}
