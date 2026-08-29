@@ -208,9 +208,8 @@ export function LedgerApp() {
               <RefreshCw className={cn("size-4", status === "loading" && "animate-spin")} />
             </button>
           </div>
-          <div className="mt-3 min-w-0">
-            <p className="font-serif text-xl leading-tight">{meta.title}</p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-faint">
+          <div className="mt-2 min-w-0">
+            <p className="flex items-center gap-1.5 text-xs text-faint">
               {live ? (
                 <span className="inline-flex items-center gap-1 text-gain">
                   <span className="size-1.5 rounded-pill bg-gain" />

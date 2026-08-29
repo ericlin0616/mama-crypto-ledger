@@ -4,11 +4,9 @@ import { BattleArena } from "@/components/battle-figures";
 import { Button } from "@/components/ui/button";
 import {
   formatGoalShort,
-  formatPct,
   formatSignedPct,
   formatSignedTwd,
   formatTwd,
-  formatTwdNumber,
   formatWan,
 } from "@/lib/format";
 import { btcQuantity, type PortfolioView } from "@/lib/portfolio";
@@ -48,31 +46,25 @@ function roi(view: PortfolioView): number | null {
 }
 
 function buildBattleText(mom: PortfolioView, dad: PortfolioView): string {
-  const lead = dad.totalTwd - mom.totalTwd;
   const lines = [
-    `爸媽資產對決`,
-    `媽媽 ${formatTwd(mom.totalTwd)}（投入 6.5 萬）`,
-    `爸爸 ${formatTwd(dad.totalTwd)}（投入 10 萬）`,
+    `爸媽資產對決（比報酬率）`,
+    `媽媽 ${mom.roiPct !== null ? formatSignedPct(mom.roiPct) : "—"}（投入 6.5 萬）`,
+    `爸爸 ${dad.roiPct !== null ? formatSignedPct(dad.roiPct) : "—"}（投入 10 萬）`,
   ];
-  if (Math.abs(lead) < 1) lines.push("兩人現在差不多。");
-  else if (lead > 0) lines.push(`爸爸目前多 ${formatTwd(lead)}`);
-  else lines.push(`媽媽目前多 ${formatTwd(-lead)}`);
-  if (mom.roiPct !== null) lines.push(`媽媽報酬 ${formatSignedPct(mom.roiPct)}`);
-  if (dad.roiPct !== null) lines.push(`爸爸報酬 ${formatSignedPct(dad.roiPct)}`);
   return lines.join("\n");
 }
 
 export function BattlePanel({ mom, dad }: Props) {
   const [copied, setCopied] = useState(false);
-  const momShown = useCountUp(mom.totalTwd);
-  const dadShown = useCountUp(dad.totalTwd);
-  const combined = mom.totalTwd + dad.totalTwd;
-  const dadShare = combined > 0 ? dad.totalTwd / combined : 0.5;
-  const momShare = 1 - dadShare;
-  const lead = dad.totalTwd - mom.totalTwd;
   const momRoi = roi(mom);
   const dadRoi = roi(dad);
-  const sizeWinner = lead > 50 ? "dad" : lead < -50 ? "mom" : "tie";
+  const momShown = useCountUp((momRoi ?? 0) * 100);
+  const dadShown = useCountUp((dadRoi ?? 0) * 100);
+  const momBar = Math.max(0, momRoi ?? 0);
+  const dadBar = Math.max(0, dadRoi ?? 0);
+  const barSum = momBar + dadBar;
+  const momShare = barSum > 0 ? momBar / barSum : 0.5;
+  const dadShare = 1 - momShare;
   const roiWinner =
     momRoi === null && dadRoi === null
       ? "tie"
@@ -85,29 +77,15 @@ export function BattlePanel({ mom, dad }: Props) {
             : momRoi - dadRoi > 0.002
               ? "mom"
               : "tie";
-  const todayLead = (dad.todayDeltaTwd ?? 0) - (mom.todayDeltaTwd ?? 0);
+  const todayLead = (dad.todayDeltaPct ?? 0) - (mom.todayDeltaPct ?? 0);
   const todayWinner =
-    mom.todayDeltaTwd === null && dad.todayDeltaTwd === null
+    mom.todayDeltaPct === null && dad.todayDeltaPct === null
       ? "tie"
-      : todayLead > 20
+      : todayLead > 0.001
         ? "dad"
-        : todayLead < -20
+        : todayLead < -0.001
           ? "mom"
           : "tie";
-
-  const headline =
-    sizeWinner === "tie"
-      ? "兩人的口袋現在差不多。"
-      : sizeWinner === "dad"
-        ? `爸爸目前多 ${formatWan(lead)}。`
-        : `媽媽目前多 ${formatWan(-lead)}。`;
-
-  const skillLine =
-    roiWinner === "tie"
-      ? "報酬率打成平手。"
-      : roiWinner === "dad"
-        ? "比誰比較會賺，這次爸爸贏。"
-        : "比誰比較會賺，這次媽媽贏。";
 
   const share = async () => {
     const text = buildBattleText(mom, dad);
@@ -134,24 +112,44 @@ export function BattlePanel({ mom, dad }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <section className="battle-stagger overflow-hidden rounded-xl bg-paper p-5 shadow-card">
-        <p className="text-sm font-medium text-muted">爸媽對決</p>
-        <h2 className="mt-1 font-serif text-2xl leading-snug">{headline}</h2>
-        <p className="mt-2 text-sm text-muted">{skillLine}</p>
+        <p className="text-center text-sm font-medium text-muted">爸媽對決</p>
 
-        <BattleArena winner={sizeWinner} />
+        <BattleArena winner={roiWinner} />
 
         <div className="mt-2 flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-medium text-mom">媽媽</p>
-            <p className="font-serif text-3xl tabular-nums tracking-tight">
-              {formatTwdNumber(momShown)}
+            <p
+              className={cn(
+                "font-serif text-3xl tabular-nums tracking-tight",
+                toneOf(momRoi) === "gain" && "text-gain",
+                toneOf(momRoi) === "loss" && "text-loss",
+              )}
+            >
+              {momRoi === null
+                ? "—"
+                : `${momShown >= 0 ? "+" : ""}${momShown.toFixed(1)}%`}
+            </p>
+            <p className="mt-0.5 text-xs text-faint">
+              投入 {mom.investedTwd > 0 ? formatTwd(mom.investedTwd) : "—"}
             </p>
           </div>
-          <p className="pb-1 text-xs text-faint">對</p>
+          <p className="pb-5 text-xs text-faint">對</p>
           <div className="text-right">
             <p className="text-xs font-medium text-dad">爸爸</p>
-            <p className="font-serif text-3xl tabular-nums tracking-tight">
-              {formatTwdNumber(dadShown)}
+            <p
+              className={cn(
+                "font-serif text-3xl tabular-nums tracking-tight",
+                toneOf(dadRoi) === "gain" && "text-gain",
+                toneOf(dadRoi) === "loss" && "text-loss",
+              )}
+            >
+              {dadRoi === null
+                ? "—"
+                : `${dadShown >= 0 ? "+" : ""}${dadShown.toFixed(1)}%`}
+            </p>
+            <p className="mt-0.5 text-xs text-faint">
+              投入 {dad.investedTwd > 0 ? formatTwd(dad.investedTwd) : "—"}
             </p>
           </div>
         </div>
@@ -167,8 +165,8 @@ export function BattlePanel({ mom, dad }: Props) {
           />
         </div>
         <div className="mt-1 flex justify-between text-xs text-faint">
-          <span>{formatPct(momShare)}</span>
-          <span>{formatPct(dadShare)}</span>
+          <span>{momRoi === null ? "—" : formatSignedPct(momRoi)}</span>
+          <span>{dadRoi === null ? "—" : formatSignedPct(dadRoi)}</span>
         </div>
       </section>
 
@@ -176,7 +174,7 @@ export function BattlePanel({ mom, dad }: Props) {
         className="battle-stagger rounded-xl bg-paper p-5 shadow-card"
         style={{ animationDelay: "120ms" }}
       >
-        <h3 className="font-serif text-lg">比一比</h3>
+        <h3 className="text-center font-serif text-lg">比一比</h3>
         <ul className="mt-4 flex flex-col">
           <Row
             label="總投入"
@@ -189,7 +187,7 @@ export function BattlePanel({ mom, dad }: Props) {
             label="現在值多少"
             mom={formatTwd(mom.totalTwd)}
             dad={formatTwd(dad.totalTwd)}
-            winner={sizeWinner}
+            winner={null}
             delay={200}
           />
           <Row
@@ -200,7 +198,7 @@ export function BattlePanel({ mom, dad }: Props) {
             dad={
               dad.totalPnlTwd === null ? "—" : formatSignedTwd(dad.totalPnlTwd)
             }
-            winner={roiWinner}
+            winner={null}
             momTone={toneOf(mom.totalPnlTwd)}
             dadTone={toneOf(dad.totalPnlTwd)}
             delay={240}
@@ -217,18 +215,18 @@ export function BattlePanel({ mom, dad }: Props) {
           <Row
             label="今日大約"
             mom={
-              mom.todayDeltaTwd === null
+              mom.todayDeltaPct === null
                 ? "—"
-                : formatSignedTwd(mom.todayDeltaTwd)
+                : formatSignedPct(mom.todayDeltaPct)
             }
             dad={
-              dad.todayDeltaTwd === null
+              dad.todayDeltaPct === null
                 ? "—"
-                : formatSignedTwd(dad.todayDeltaTwd)
+                : formatSignedPct(dad.todayDeltaPct)
             }
             winner={todayWinner}
-            momTone={toneOf(mom.todayDeltaTwd)}
-            dadTone={toneOf(dad.todayDeltaTwd)}
+            momTone={toneOf(mom.todayDeltaPct)}
+            dadTone={toneOf(dad.todayDeltaPct)}
             delay={320}
           />
           <Row
@@ -240,7 +238,7 @@ export function BattlePanel({ mom, dad }: Props) {
               dad.gapTwd <= 0 ? "已達標" : `還差 ${formatWan(dad.gapTwd)}`
             }
             winner={
-              mom.progress === dad.progress
+              Math.abs(mom.progress - dad.progress) < 0.005
                 ? "tie"
                 : mom.progress > dad.progress
                   ? "mom"
@@ -263,8 +261,8 @@ export function BattlePanel({ mom, dad }: Props) {
             delay={440}
           />
         </ul>
-        <p className="mt-4 text-sm leading-relaxed text-muted">
-          媽媽總投入 6.5 萬，爸爸 10 萬。口袋比較鼓不一定比較會賺，報酬率才是同一筆錢比出來的結果。
+        <p className="mt-4 text-center text-sm leading-relaxed text-muted">
+          本金不一樣，用報酬率比才公平。
         </p>
       </section>
 
@@ -310,11 +308,11 @@ function Row({
       className="battle-stagger border-t border-line py-3 first:border-t-0 first:pt-0"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <p className="text-xs text-muted">{label}</p>
+      <p className="text-center text-xs text-muted">{label}</p>
       <div className="mt-1 grid grid-cols-2 gap-3">
         <p
           className={cn(
-            "font-serif text-lg tabular-nums",
+            "text-center font-serif text-lg tabular-nums",
             momTone === "gain" && "text-gain",
             momTone === "loss" && "text-loss",
             winner === "mom" && momTone === "neutral" && "text-mom",
@@ -324,7 +322,7 @@ function Row({
         </p>
         <p
           className={cn(
-            "text-right font-serif text-lg tabular-nums",
+            "text-center font-serif text-lg tabular-nums",
             dadTone === "gain" && "text-gain",
             dadTone === "loss" && "text-loss",
             winner === "dad" && dadTone === "neutral" && "text-dad",
