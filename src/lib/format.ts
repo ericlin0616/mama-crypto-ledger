@@ -115,3 +115,14 @@ export function formatSlot12h(ts: number): string {
   );
   return `${formatMd(ts)} ${hour < 12 ? "早上" : "晚上"}`;
 }
+
+export function formatSlotPart(ts: number): "早" | "晚" {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Taipei",
+      hour: "2-digit",
+      hour12: false,
+    }).format(new Date(ts)),
+  );
+  return hour < 12 ? "早" : "晚";
+}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
-  BarChart,
-  ReferenceLine,
+  CartesianGrid,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,6 +13,7 @@ import {
   formatGoalWan,
   formatMd,
   formatSlot12h,
+  formatSlotPart,
   formatTwd,
   formatTwdNumber,
   formatWan,
@@ -26,6 +28,8 @@ type Props = {
   owner: string;
 };
 
+type GapPoint = TrendPoint & { gap: number };
+
 function axisTwd(value: number): string {
   if (Math.abs(value) >= 10_000) {
     const wan = value / 10_000;
@@ -34,13 +38,37 @@ function axisTwd(value: number): string {
   return formatTwdNumber(value, 0);
 }
 
+function SlotTick({
+  x = 0,
+  y = 0,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+}) {
+  if (!payload) return null;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="middle" fill="var(--color-faint)" fontSize={10}>
+        <tspan x="0" dy="12">
+          {formatMd(payload.value)}
+        </tspan>
+        <tspan x="0" dy="12">
+          {formatSlotPart(payload.value)}
+        </tspan>
+      </text>
+    </g>
+  );
+}
+
 function ChartTip({
   active,
   payload,
   goal,
 }: {
   active?: boolean;
-  payload?: { payload?: TrendPoint }[];
+  payload?: { payload?: GapPoint }[];
   goal: number;
 }) {
   const point = payload?.[0]?.payload;
@@ -87,44 +115,50 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
     };
   }, [usdTwd, view.totalTwd, view.visible.length, view.goalTwd]);
 
-  const rows = useMemo(() => {
-    return [...points].slice(-3).reverse();
-  }, [points]);
-  const bars = useMemo(() => points.slice(-3), [points]);
-
-  const ceiling = Math.max(goal, ...bars.map((p) => p.totalTwd), 1) * 1.04;
+  const chart = useMemo<GapPoint[]>(
+    () =>
+      points.slice(-6).map((p) => ({
+        ...p,
+        gap: Math.max(0, goal - p.totalTwd),
+      })),
+    [points, goal],
+  );
+  const rows = useMemo(() => [...chart].slice(-3).reverse(), [chart]);
+  const ceiling = Math.max(...chart.map((p) => p.gap), 1) * 1.18;
   const reached = view.totalTwd >= goal;
 
   return (
     <div className="mt-5">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-muted">離目標還有多遠</p>
-          <p className="mt-1 font-serif text-3xl tabular-nums tracking-tight">
-            {reached ? "已達標" : formatTwd(view.gapTwd)}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            {owner}的目標{formatGoalWan(goal)}全賣
-            {reached ? "" : ` · 每 12 小時看一次`}
-          </p>
-        </div>
+      <div>
+        <p className="text-sm font-medium text-muted">離目標還有多遠</p>
+        <p className="mt-1 font-serif text-3xl tabular-nums tracking-tight">
+          {reached ? "已達標" : formatTwd(view.gapTwd)}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          {owner}的目標{formatGoalWan(goal)}全賣
+          {reached ? "" : " · 柱子愈短愈接近"}
+        </p>
       </div>
 
-      <div className="chart-hit mt-4 h-40">
-        {ready && bars.length >= 1 ? (
+      <div className="chart-hit mt-4 h-48">
+        {ready && chart.length >= 1 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={bars}
-              margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+            <ComposedChart
+              data={chart}
+              margin={{ top: 8, right: 6, left: 0, bottom: 6 }}
             >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--color-line)"
+                strokeDasharray="3 6"
+              />
               <XAxis
                 dataKey="t"
-                tickFormatter={(v) => formatMd(Number(v))}
-                tick={{ fill: "var(--color-faint)", fontSize: 10 }}
+                tick={<SlotTick />}
                 tickLine={false}
                 axisLine={false}
-                minTickGap={36}
                 interval={0}
+                height={32}
               />
               <YAxis
                 domain={[0, ceiling]}
@@ -133,26 +167,31 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                 tickLine={false}
                 axisLine={false}
                 width={40}
+                ticks={[0, ceiling / 2, ceiling]}
               />
               <Tooltip
                 content={<ChartTip goal={goal} />}
-                cursor={{ fill: "var(--color-accent-soft)" }}
-              />
-              <ReferenceLine
-                y={goal}
-                stroke="var(--color-ink)"
-                strokeDasharray="4 4"
-                strokeWidth={1.25}
+                cursor={{ fill: "var(--color-accent-soft)", opacity: 0.45 }}
               />
               <Bar
-                dataKey="totalTwd"
-                name="總資產"
+                dataKey="gap"
+                name="還差"
                 fill="var(--color-accent)"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={36}
+                radius={[6, 6, 0, 0]}
+                maxBarSize={22}
                 isAnimationActive={false}
               />
-            </BarChart>
+              <Line
+                type="monotone"
+                dataKey="gap"
+                name="走勢"
+                stroke="var(--color-ink)"
+                strokeWidth={1.75}
+                dot={{ r: 3.5, fill: "var(--color-paper)", stroke: "var(--color-ink)", strokeWidth: 1.5 }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -162,7 +201,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
           </div>
         )}
       </div>
-      <p className="mt-1 text-right text-xs text-faint">虛線是目標 {formatGoalWan(goal)}</p>
+      <p className="mt-1 text-right text-xs text-faint">近 3 天 · 柱高是還差多少</p>
 
       {rows.length > 0 ? (
         <ul className="mt-4 divide-y divide-line">
