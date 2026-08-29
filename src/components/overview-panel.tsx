@@ -219,9 +219,9 @@ export function OverviewPanel({
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
               <div
-                className="h-full rounded-pill bg-accent transition-[width] duration-500 ease-out"
+                className="h-full rounded-pill bg-accent transition-[width] duration-700 ease-out"
                 style={{
-                  width: `${Math.max(2, view.totalTwd > 0 ? (cashTwd / view.totalTwd) * 100 : 0)}%`,
+                  width: `${Math.max(2, view.totalTwd > 0 ? (cashShown / Math.max(view.totalTwd, 1)) * 100 : 0)}%`,
                 }}
               />
             </div>
@@ -239,9 +239,9 @@ export function OverviewPanel({
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
               <div
-                className="h-full rounded-pill bg-ink transition-[width] duration-500 ease-out"
+                className="h-full rounded-pill bg-ink transition-[width] duration-700 ease-out"
                 style={{
-                  width: `${Math.max(2, view.totalTwd > 0 ? (coinTwd / view.totalTwd) * 100 : 0)}%`,
+                  width: `${Math.max(2, view.totalTwd > 0 ? (coinShown / Math.max(view.totalTwd, 1)) * 100 : 0)}%`,
                 }}
               />
             </div>

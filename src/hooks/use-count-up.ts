@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
+export function useMotion() {
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setOn(!media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  return on;
+}
+
 export function useCountUp(target: number, duration = 900) {
   const [value, setValue] = useState(0);
   const fromRef = useRef(0);

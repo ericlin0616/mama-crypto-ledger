@@ -15,6 +15,7 @@ import {
   formatSignedTwd,
   formatTwdNumber,
 } from "@/lib/format";
+import { useCountUp, useMotion } from "@/hooks/use-count-up";
 import { buildTrend, type TrendPoint, type TrendRange } from "@/lib/trend";
 import type { PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [ready, setReady] = useState(false);
+  const motion = useMotion();
 
   useEffect(() => {
     setReady(true);
@@ -129,6 +131,7 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
     };
   }, [points]);
 
+  const deltaShown = useCountUp(stats?.delta ?? 0, 900);
   const stroke = stats?.up ? "var(--color-gain)" : "var(--color-loss)";
   const fillId = stats?.up ? "trendUp" : "trendDown";
   const fillColor = stats?.up ? "var(--color-gain)" : "var(--color-loss)";
@@ -156,7 +159,7 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
                   stats.up ? "text-gain" : "text-loss",
                 )}
               >
-                {formatSignedTwd(stats.delta)}{" "}
+                {formatSignedTwd(Math.round(deltaShown))}{" "}
                 <span className="text-base">{formatSignedPct(stats.pct)}</span>
               </p>
               {stats.hasBtc ? (
@@ -194,6 +197,7 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
         {ready && points.length >= 3 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
+              key={range}
               data={points}
               margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
             >
@@ -241,7 +245,10 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
                   stroke: "var(--color-paper)",
                   strokeWidth: 2,
                 }}
-                isAnimationActive={false}
+                isAnimationActive={motion}
+                animationDuration={1000}
+                animationBegin={80}
+                animationEasing="ease-out"
               />
               <Line
                 type="monotone"
@@ -257,7 +264,10 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
                   stroke: "var(--color-paper)",
                   strokeWidth: 2,
                 }}
-                isAnimationActive={false}
+                isAnimationActive={motion}
+                animationDuration={1100}
+                animationBegin={200}
+                animationEasing="ease-out"
                 connectNulls
               />
             </ComposedChart>

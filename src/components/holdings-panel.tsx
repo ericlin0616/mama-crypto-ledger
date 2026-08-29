@@ -16,6 +16,7 @@ import {
   type ValuedHolding,
   type PortfolioView,
 } from "@/lib/portfolio";
+import { useCountUp, useMotion } from "@/hooks/use-count-up";
 import { cn } from "@/lib/utils";
 
 const SLICE_COLORS = [
@@ -43,6 +44,7 @@ type PieRow = {
 export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
   const [filter, setFilter] = useState<"all" | SourceId>("all");
   const [mode, setMode] = useState<"coin" | "account">("coin");
+  const motion = useMotion();
 
   const sourceFilters = useMemo(
     () => [
@@ -129,6 +131,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
   }, [mode, coinRows, groups]);
 
   const pieTotal = pieRows.reduce((sum, row) => sum + row.value, 0);
+  const pieShown = useCountUp(pieTotal, 800);
 
   return (
     <div className="flex flex-col gap-4">
@@ -172,6 +175,10 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                     paddingAngle={1.4}
                     stroke="var(--color-paper)"
                     strokeWidth={2}
+                    isAnimationActive={motion}
+                    animationDuration={850}
+                    animationBegin={40}
+                    animationEasing="ease-out"
                     onClick={(_, index) => {
                       const id = pieRows[index]?.holdingId;
                       if (id) onSelect(id);
@@ -188,6 +195,9 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                 </PieChart>
               </ResponsiveContainer>
             </div>
+            <p className="mt-1 text-center font-serif text-lg tabular-nums">
+              {formatTwdNumber(Math.round(pieShown))}
+            </p>
             <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-2">
               {pieRows.map((row) => (
                 <li key={row.name} className="flex items-center gap-2 text-xs">

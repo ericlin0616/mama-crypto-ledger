@@ -18,7 +18,7 @@ import {
   formatTwdNumber,
   formatWan,
 } from "@/lib/format";
-import { useCountUp } from "@/hooks/use-count-up";
+import { useCountUp, useMotion } from "@/hooks/use-count-up";
 import { buildTrend, type TrendPoint } from "@/lib/trend";
 import type { PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -92,6 +92,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [ready, setReady] = useState(false);
+  const motion = useMotion();
   const goal = view.goalTwd;
 
   useEffect(() => {
@@ -181,7 +182,10 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                 fill="var(--color-accent)"
                 radius={[6, 6, 0, 0]}
                 maxBarSize={22}
-                isAnimationActive={false}
+                isAnimationActive={motion}
+                animationDuration={800}
+                animationBegin={80}
+                animationEasing="ease-out"
               />
               <Line
                 type="monotone"
@@ -191,7 +195,10 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                 strokeWidth={1.75}
                 dot={{ r: 3.5, fill: "var(--color-paper)", stroke: "var(--color-ink)", strokeWidth: 1.5 }}
                 activeDot={{ r: 5 }}
-                isAnimationActive={false}
+                isAnimationActive={motion}
+                animationDuration={950}
+                animationBegin={220}
+                animationEasing="ease-out"
               />
             </ComposedChart>
           </ResponsiveContainer>
