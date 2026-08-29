@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import {
+  formatGapNumber,
   formatGoalShort,
   formatPct,
   formatTwd,
@@ -195,7 +196,7 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
         <p className="mt-4 text-sm leading-relaxed text-muted">
           {reached
             ? `已經到 ${formatGoalShort(goalTwd)} 了。可以把目標再往上調。`
-            : `現在 ${formatWan(view.totalTwd)}，還差 ${formatWan(view.gapTwd)}。整體再漲 ${formatPct(view.neededRatio)} 就到。`}
+            : `現在 ${formatWan(view.totalTwd)}，${formatGapNumber(view.gapTwd)}。整體再漲 ${formatPct(view.neededRatio)} 就到。`}
         </p>
       </section>
 

@@ -166,6 +166,88 @@ html[data-profile="dad"] {
     transform: translateX(100%);
   }
 
+  .glass-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 0 14px calc(10px + env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+
+  .glass-dock-bar {
+    pointer-events: auto;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 28rem;
+    margin: 0 auto;
+    padding: 5px;
+    border-radius: 28px;
+    background: linear-gradient(
+      185deg,
+      rgba(255, 255, 255, 0.52) 0%,
+      rgba(255, 255, 255, 0.18) 48%,
+      rgba(255, 255, 255, 0.28) 100%
+    );
+    backdrop-filter: blur(32px) saturate(1.85);
+    -webkit-backdrop-filter: blur(32px) saturate(1.85);
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.82),
+      inset 0 -1px 0 rgba(20, 24, 32, 0.05),
+      0 18px 40px rgba(20, 24, 32, 0.14);
+  }
+
+  .glass-dock-bar::before {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: 27px;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.38),
+      transparent 42%
+    );
+  }
+
+  html[data-profile="dad"] .glass-dock-bar {
+    background: linear-gradient(
+      185deg,
+      rgba(236, 244, 255, 0.5) 0%,
+      rgba(210, 222, 238, 0.18) 48%,
+      rgba(224, 234, 248, 0.28) 100%
+    );
+    border-color: rgba(236, 244, 255, 0.62);
+  }
+
+  .glass-dock-thumb {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 5px;
+    width: calc((100% - 10px) / 4);
+    border-radius: 23px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.88),
+      rgba(255, 255, 255, 0.42)
+    );
+    box-shadow:
+      0 6px 18px rgba(20, 24, 32, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    transition: transform 320ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  html[data-profile="dad"] .glass-dock-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.9),
+      rgba(226, 236, 248, 0.45)
+    );
+  }
+
   .battle-pop {
     animation: battlePop 500ms cubic-bezier(0.2, 0, 0, 1) both;
   }

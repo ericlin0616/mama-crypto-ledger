@@ -5,6 +5,7 @@ import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
 import { useCountUp } from "@/hooks/use-count-up";
 import {
+  formatGapNumber,
   formatGoalShort,
   formatPct,
   formatRelative,
@@ -185,7 +186,7 @@ export function OverviewPanel({
         <p className="mt-4 text-sm leading-relaxed text-muted">
           {reached
             ? `已經達到 ${formatGoalShort(goal)} 了。`
-            : `現在大約 ${formatWan(view.totalTwd)}。想到 ${formatGoalShort(goal)}，還差 ${formatWan(view.gapTwd)}，相當於整體再漲 ${formatPct(view.neededRatio)}。`}
+            : `現在大約 ${formatWan(view.totalTwd)}。想到 ${formatGoalShort(goal)}，${formatGapNumber(view.gapTwd)}，相當於整體再漲 ${formatPct(view.neededRatio)}。`}
           {mover
             ? ` 今天影響最大的是${mover.name}，帳上大約 ${formatSignedTwd(mover.impact)}。`
             : ""}

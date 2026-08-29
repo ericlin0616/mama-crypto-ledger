@@ -17,6 +17,11 @@ export function formatTwdNumber(value: number, digits = 0): string {
   }).format(value);
 }
 
+export function formatGapNumber(gap: number): string {
+  if (!Number.isFinite(gap) || gap <= 0) return "已達標";
+  return `-${formatTwdNumber(Math.round(gap))}`;
+}
+
 export function formatWan(value: number): string {
   const wan = value / 10_000;
   const digits = Math.abs(wan) >= 10 ? 1 : 2;

@@ -4,11 +4,11 @@ import { BattleArena } from "@/components/battle-figures";
 import { Button } from "@/components/ui/button";
 import { useCountUp } from "@/hooks/use-count-up";
 import {
+  formatGapNumber,
   formatGoalShort,
   formatSignedPct,
   formatSignedTwd,
   formatTwd,
-  formatWan,
 } from "@/lib/format";
 import { btcQuantity, type PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -209,10 +209,10 @@ export function BattlePanel({ mom, dad }: Props) {
           <Row
             label="離目標"
             mom={
-              mom.gapTwd <= 0 ? "已達標" : `還差 ${formatWan(mom.gapTwd)}`
+              mom.gapTwd <= 0 ? "已達標" : formatGapNumber(mom.gapTwd)
             }
             dad={
-              dad.gapTwd <= 0 ? "已達標" : `還差 ${formatWan(dad.gapTwd)}`
+              dad.gapTwd <= 0 ? "已達標" : formatGapNumber(dad.gapTwd)
             }
             winner={
               Math.abs(mom.progress - dad.progress) < 0.005

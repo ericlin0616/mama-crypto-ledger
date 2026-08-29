@@ -227,7 +227,7 @@ export function LedgerApp() {
           </div>
         </header>
 
-        <main className="flex-1 px-5 pb-28 md:px-8">
+        <main className="flex-1 px-5 pb-32 md:px-8">
           {tab === "home" ? (
             <OverviewPanel
               view={view}
@@ -260,8 +260,13 @@ export function LedgerApp() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/90 pb-safe backdrop-blur-md">
-        <div className="mx-auto grid max-w-lg grid-cols-4 md:max-w-4xl">
+      <nav className="glass-dock" aria-label="主要分頁">
+        <div className="glass-dock-bar">
+          <span
+            className="glass-dock-thumb"
+            style={{ transform: `translateX(${["home", "holdings", "battle", "goal"].indexOf(tab) * 100}%)` }}
+            aria-hidden="true"
+          />
           <TabBtn
             active={tab === "home"}
             onClick={() => goTab("home")}
@@ -345,8 +350,8 @@ function TabBtn({
       onPointerDown={onClick}
       onClick={onClick}
       className={cn(
-        "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-150",
-        active ? "text-accent" : "text-faint",
+        "relative z-10 flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition-colors duration-200",
+        active ? "text-ink" : "text-faint",
       )}
     >
       {icon}

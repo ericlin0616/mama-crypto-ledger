@@ -10,13 +10,13 @@ import {
   YAxis,
 } from "recharts";
 import {
+  formatGapNumber,
   formatGoalWan,
   formatMd,
   formatSlot12h,
   formatSlotPart,
   formatTwd,
   formatTwdNumber,
-  formatWan,
 } from "@/lib/format";
 import { useCountUp, useMotion } from "@/hooks/use-count-up";
 import { buildTrend, type TrendPoint } from "@/lib/trend";
@@ -82,7 +82,7 @@ function ChartTip({
         {formatTwdNumber(point.totalTwd)}
       </p>
       <p className="text-xs text-muted">
-        {gap <= 0 ? "已達到目標" : `還差 ${formatWan(gap)}`}
+        {gap <= 0 ? "已達到目標" : formatGapNumber(gap)}
       </p>
     </div>
   );
@@ -135,7 +135,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
       <div>
         <p className="text-sm font-medium text-muted">離目標還有多遠</p>
         <p className="mt-1 font-serif text-3xl tabular-nums tracking-tight">
-          {reached ? "已達標" : formatTwd(Math.round(gapShown))}
+          {reached ? "已達標" : formatGapNumber(Math.round(gapShown))}
         </p>
         <p className="mt-1 text-xs text-muted">
           {owner}的目標{formatGoalWan(goal)}全賣
@@ -230,7 +230,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                     gap <= 0 ? "text-gain" : "text-muted",
                   )}
                 >
-                  {gap <= 0 ? "已達標" : `還差 ${formatGoalWan(gap)}`}
+                  {gap <= 0 ? "已達標" : formatGapNumber(gap)}
                 </span>
               </li>
             );
