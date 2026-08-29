@@ -88,10 +88,11 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
   }, [usdTwd, view.totalTwd, view.visible.length, view.goalTwd]);
 
   const rows = useMemo(() => {
-    return [...points].slice(-6).reverse();
+    return [...points].slice(-3).reverse();
   }, [points]);
+  const bars = useMemo(() => points.slice(-3), [points]);
 
-  const ceiling = Math.max(goal, ...points.map((p) => p.totalTwd), 1) * 1.04;
+  const ceiling = Math.max(goal, ...bars.map((p) => p.totalTwd), 1) * 1.04;
   const reached = view.totalTwd >= goal;
 
   return (
@@ -110,10 +111,10 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
       </div>
 
       <div className="chart-hit mt-4 h-40">
-        {ready && points.length >= 3 ? (
+        {ready && bars.length >= 1 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={points}
+              data={bars}
               margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
             >
               <XAxis
@@ -123,7 +124,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                 tickLine={false}
                 axisLine={false}
                 minTickGap={36}
-                interval="preserveStartEnd"
+                interval={0}
               />
               <YAxis
                 domain={[0, ceiling]}
@@ -148,7 +149,7 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
                 name="總資產"
                 fill="var(--color-accent)"
                 radius={[4, 4, 0, 0]}
-                maxBarSize={16}
+                maxBarSize={36}
                 isAnimationActive={false}
               />
             </BarChart>
