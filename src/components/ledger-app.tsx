@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookOpen, RefreshCw, Target, Wallet } from "lucide-react";
+import { BookOpen, RefreshCw, Swords, Target, Wallet } from "lucide-react";
 import { AddEntrySheet } from "@/components/add-entry-sheet";
+import { BattlePanel } from "@/components/battle-panel";
 import { GoalPanel } from "@/components/goal-panel";
 import { HoldingSheet } from "@/components/holding-sheet";
 import { HoldingsPanel } from "@/components/holdings-panel";
@@ -31,6 +32,8 @@ import {
   buildPortfolio,
   seedHoldings,
   type Holding,
+  type PriceBook,
+  type PortfolioView,
 } from "@/lib/portfolio";
 import {
   PROFILES,
@@ -40,7 +43,7 @@ import {
 } from "@/lib/profiles";
 import { cn } from "@/lib/utils";
 
-type Tab = "home" | "holdings" | "goal";
+type Tab = "home" | "holdings" | "goal" | "battle";
 
 export function LedgerApp() {
   const [profile, setProfile] = useState<ProfileId>(() => loadProfile());
@@ -92,6 +95,7 @@ export function LedgerApp() {
           custom,
           costOverrides: cost,
           hiddenIds: hidden,
+          seedCostTwd: meta.costTwd,
         },
         seed,
       ),
@@ -99,6 +103,15 @@ export function LedgerApp() {
   );
   const selected = view.holdings.find((h) => h.id === selectedId) ?? null;
   const live = status === "live";
+
+  const momView = useMemo(() => {
+    if (profile === "mom") return view;
+    return storedView("mom", book);
+  }, [profile, view, book]);
+  const dadView = useMemo(() => {
+    if (profile === "dad") return view;
+    return storedView("dad", book);
+  }, [profile, view, book]);
 
   useEffect(() => {
     if (view.totalTwd < 1) return;
@@ -215,11 +228,14 @@ export function LedgerApp() {
               }}
             />
           ) : null}
+          {tab === "battle" ? (
+            <BattlePanel mom={momView} dad={dadView} />
+          ) : null}
         </main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/90 pb-safe backdrop-blur-md">
-        <div className="mx-auto grid max-w-lg grid-cols-3 md:max-w-4xl">
+        <div className="mx-auto grid max-w-lg grid-cols-4 md:max-w-4xl">
           <TabBtn
             active={tab === "home"}
             onClick={() => setTab("home")}
@@ -231,6 +247,12 @@ export function LedgerApp() {
             onClick={() => setTab("holdings")}
             icon={<Wallet className="size-5" />}
             label="持倉"
+          />
+          <TabBtn
+            active={tab === "battle"}
+            onClick={() => setTab("battle")}
+            icon={<Swords className="size-5" />}
+            label="對決"
           />
           <TabBtn
             active={tab === "goal"}
@@ -304,5 +326,21 @@ function TabBtn({
       {icon}
       <span className={cn(active && "font-medium")}>{label}</span>
     </button>
+  );
+}
+
+function storedView(id: ProfileId, book: PriceBook | null): PortfolioView {
+  const meta = PROFILES[id];
+  return buildPortfolio(
+    book,
+    loadQty(id),
+    loadGoal(meta.goalTwd, id),
+    {
+      custom: loadCustom(id),
+      costOverrides: loadCost(id),
+      hiddenIds: loadHidden(id),
+      seedCostTwd: meta.costTwd,
+    },
+    seedHoldings(id),
   );
 }

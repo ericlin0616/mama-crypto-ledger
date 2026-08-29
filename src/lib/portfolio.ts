@@ -658,6 +658,8 @@ export type PortfolioView = {
   pricedRatio: number;
   totalPnlTwd: number | null;
   totalCostTwd: number;
+  investedTwd: number;
+  roiPct: number | null;
   todayDeltaTwd: number | null;
   todayDeltaPct: number | null;
   majors: MajorQuote[];
@@ -669,6 +671,7 @@ export type PortfolioExtras = {
   custom?: Holding[];
   costOverrides?: Record<string, number>;
   hiddenIds?: string[];
+  seedCostTwd?: number | null;
 };
 
 export function snapshotUnitPrice(h: Holding): number | null {
@@ -766,12 +769,20 @@ export function buildPortfolio(
   const pricedRatio = holdings.length ? liveCount / holdings.length : 0;
 
   const withCost = counted.filter((h) => h.costTwd !== null);
-  const totalCostTwd = withCost.reduce((sum, h) => sum + (h.costTwd ?? 0), 0);
+  const summedCost = withCost.reduce((sum, h) => sum + (h.costTwd ?? 0), 0);
+  const investedTwd =
+    extras.seedCostTwd && extras.seedCostTwd > 0 ? extras.seedCostTwd : summedCost;
+  const totalCostTwd = investedTwd;
   const pnlParts = counted.filter((h) => h.pnlTwd !== null);
-  const totalPnlTwd =
+  const summedPnl =
     pnlParts.length > 0
       ? pnlParts.reduce((sum, h) => sum + (h.pnlTwd ?? 0), 0)
       : null;
+  const totalPnlTwd =
+    extras.seedCostTwd && extras.seedCostTwd > 0
+      ? totalTwd - extras.seedCostTwd
+      : summedPnl;
+  const roiPct = investedTwd > 0 ? (totalTwd - investedTwd) / investedTwd : null;
 
   let todayBase = 0;
   let todayNow = 0;
@@ -866,6 +877,8 @@ export function buildPortfolio(
     pricedRatio,
     totalPnlTwd,
     totalCostTwd,
+    investedTwd,
+    roiPct,
     todayDeltaTwd,
     todayDeltaPct,
     majors,

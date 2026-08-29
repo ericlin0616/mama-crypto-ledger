@@ -5,6 +5,7 @@ export type ProfileMeta = {
   owner: "媽媽" | "爸爸";
   title: string;
   goalTwd: number;
+  costTwd: number | null;
   themeColor: string;
 };
 
@@ -14,6 +15,7 @@ export const PROFILES: Record<ProfileId, ProfileMeta> = {
     owner: "媽媽",
     title: "媽媽的加密帳本",
     goalTwd: 100_000,
+    costTwd: null,
     themeColor: "#efe8dc",
   },
   dad: {
@@ -21,6 +23,7 @@ export const PROFILES: Record<ProfileId, ProfileMeta> = {
     owner: "爸爸",
     title: "爸爸的加密帳本",
     goalTwd: 150_000,
+    costTwd: 100_000,
     themeColor: "#d8dee8",
   },
 };
