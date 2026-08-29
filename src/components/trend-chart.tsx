@@ -30,6 +30,7 @@ const BTC_STROKE = "var(--color-ink)";
 type Props = {
   view: PortfolioView;
   usdTwd: number | null;
+  owner: string;
 };
 
 function axisTwd(value: number): string {
@@ -72,7 +73,7 @@ function ChartTip({
   );
 }
 
-export function TrendChart({ view, usdTwd }: Props) {
+export function TrendChart({ view, usdTwd, owner }: Props) {
   const [range, setRange] = useState<TrendRange>("30d");
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -139,7 +140,7 @@ export function TrendChart({ view, usdTwd }: Props) {
       : Math.abs(stats.beat) < 0.005
         ? "這段期間跟比特幣差不多"
         : stats.beat > 0
-          ? `媽媽比比特幣多 ${formatPct(stats.beat)}`
+          ? `${owner}比比特幣多 ${formatPct(stats.beat)}`
           : `比特幣比較強，差 ${formatPct(Math.abs(stats.beat))}`;
 
   return (
@@ -229,7 +230,7 @@ export function TrendChart({ view, usdTwd }: Props) {
               <Area
                 type="monotone"
                 dataKey="totalTwd"
-                name="媽媽的資產"
+                name={`${owner}的資產`}
                 stroke={stroke}
                 strokeWidth={2.25}
                 fill={`url(#${fillId})`}
@@ -274,7 +275,7 @@ export function TrendChart({ view, usdTwd }: Props) {
             className="inline-block h-0.5 w-4 rounded-pill"
             style={{ background: stroke }}
           />
-          媽媽的資產
+          {owner}的資產
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span

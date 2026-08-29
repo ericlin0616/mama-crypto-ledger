@@ -37,6 +37,28 @@
     0px 2px 8px 0px rgba(28, 24, 20, 0.04);
 }
 
+html[data-profile="dad"] {
+  --color-bg: #d8dee8;
+  --color-paper: #eef1f6;
+  --color-ink: #12161e;
+  --color-muted: #5a6370;
+  --color-faint: #87909a;
+  --color-line: #c5ccd6;
+  --color-accent: #1f3d5c;
+  --color-accent-fg: #eef1f6;
+  --color-accent-soft: #d2dde8;
+  --color-gain: #1a6a58;
+  --color-gain-soft: #d5eae4;
+  --color-loss: #9a3c38;
+  --color-loss-soft: #f0e1de;
+  --color-slice-1: #12161e;
+  --color-slice-2: #1f3d5c;
+  --color-slice-3: #3d5c78;
+  --color-slice-4: #6a8499;
+  --color-slice-5: #9aafc0;
+  --color-slice-6: #c5c0b4;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -50,6 +72,7 @@
     background: var(--color-bg);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    transition: background-color 280ms ease, color 280ms ease;
   }
 
   button:not(:disabled),
@@ -96,6 +119,49 @@
 
   .max-h-sheet {
     max-height: 90dvh;
+  }
+
+  .glass-switch {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-width: 11.5rem;
+    padding: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.58),
+      rgba(255, 255, 255, 0.22)
+    );
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      inset 0 -1px 0 rgba(20, 24, 32, 0.06),
+      0 10px 28px rgba(20, 24, 32, 0.08);
+  }
+
+  .glass-thumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(255, 255, 255, 0.55)
+    );
+    box-shadow:
+      0 4px 14px rgba(20, 24, 32, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    transition: transform 280ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .glass-thumb-dad {
+    transform: translateX(100%);
   }
 }
 

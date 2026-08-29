@@ -161,6 +161,8 @@ export function AddEntrySheet({ open, onOpenChange, onSubmit }: Props) {
             className="mt-2 h-12 w-full rounded-md bg-bg px-3 text-base outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
           >
             <option value="binance-spot">Binance 現貨</option>
+            <option value="mexc">MEXC 現貨</option>
+            <option value="bitget-spot">Bitget 現貨</option>
             <option value="unknown-ex">其他交易所</option>
             <option value="binance-web3">Binance 錢包</option>
             <option value="okx-web3">OKX 錢包</option>

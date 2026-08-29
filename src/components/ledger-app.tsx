@@ -5,6 +5,7 @@ import { GoalPanel } from "@/components/goal-panel";
 import { HoldingSheet } from "@/components/holding-sheet";
 import { HoldingsPanel } from "@/components/holdings-panel";
 import { OverviewPanel } from "@/components/overview-panel";
+import { ProfileSwitch } from "@/components/profile-switch";
 import { usePrices } from "@/hooks/use-prices";
 import { formatTime } from "@/lib/format";
 import {
@@ -26,23 +27,36 @@ import {
   type HistoryPoint,
   type LastVisit,
 } from "@/lib/ledger-store";
-import { GOAL_TWD, HOLDINGS, buildPortfolio, type Holding } from "@/lib/portfolio";
+import {
+  buildPortfolio,
+  seedHoldings,
+  type Holding,
+} from "@/lib/portfolio";
+import {
+  PROFILES,
+  loadProfile,
+  saveProfile,
+  type ProfileId,
+} from "@/lib/profiles";
 import { cn } from "@/lib/utils";
 
 type Tab = "home" | "holdings" | "goal";
 
 export function LedgerApp() {
+  const [profile, setProfile] = useState<ProfileId>(() => loadProfile());
   const [qty, setQty] = useState<Record<string, number>>({});
   const [cost, setCost] = useState<Record<string, number>>({});
   const [custom, setCustom] = useState<Holding[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
-  const [goalTwd, setGoalTwd] = useState(GOAL_TWD);
+  const [goalTwd, setGoalTwd] = useState(PROFILES.mom.goalTwd);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
 
+  const meta = PROFILES[profile];
+  const seed = useMemo(() => seedHoldings(profile), [profile]);
   const extraSymbols = useMemo(
     () => custom.map((h) => h.symbol),
     [custom],
@@ -50,23 +64,38 @@ export function LedgerApp() {
   const { book, status, refresh } = usePrices(extraSymbols);
 
   useEffect(() => {
-    setQty(loadQty());
-    setCost(loadCost());
-    setCustom(loadCustom());
-    setHidden(loadHidden());
-    setGoalTwd(loadGoal(GOAL_TWD));
-    setHistory(loadHistory());
-    setLastVisit(loadLastVisit());
-  }, []);
+    document.documentElement.dataset.profile = profile;
+    document.title = meta.title;
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute("content", meta.themeColor);
+  }, [profile, meta.title, meta.themeColor]);
+
+  useEffect(() => {
+    setQty(loadQty(profile));
+    setCost(loadCost(profile));
+    setCustom(loadCustom(profile));
+    setHidden(loadHidden(profile));
+    setGoalTwd(loadGoal(meta.goalTwd, profile));
+    setHistory(loadHistory(profile));
+    setLastVisit(loadLastVisit(profile));
+    setSelectedId(null);
+    setAdding(false);
+  }, [profile, meta.goalTwd]);
 
   const view = useMemo(
     () =>
-      buildPortfolio(book, qty, goalTwd, {
-        custom,
-        costOverrides: cost,
-        hiddenIds: hidden,
-      }),
-    [book, qty, goalTwd, custom, cost, hidden],
+      buildPortfolio(
+        book,
+        qty,
+        goalTwd,
+        {
+          custom,
+          costOverrides: cost,
+          hiddenIds: hidden,
+        },
+        seed,
+      ),
+    [book, qty, goalTwd, custom, cost, hidden, seed],
   );
   const selected = view.holdings.find((h) => h.id === selectedId) ?? null;
   const live = status === "live";
@@ -74,19 +103,19 @@ export function LedgerApp() {
   useEffect(() => {
     if (view.totalTwd < 1) return;
     const id = window.setTimeout(() => {
-      setHistory(recordHistory(view.totalTwd));
-      saveLastVisit(view.totalTwd);
+      setHistory(recordHistory(view.totalTwd, profile));
+      saveLastVisit(view.totalTwd, profile);
     }, 8000);
     return () => window.clearTimeout(id);
-  }, [view.totalTwd]);
+  }, [view.totalTwd, profile]);
 
   const persistQty = (next: Record<string, number>) => {
     setQty(next);
-    saveQty(next);
+    saveQty(next, profile);
   };
   const persistCost = (next: Record<string, number>) => {
     setCost(next);
-    saveCost(next);
+    saveCost(next, profile);
   };
 
   const saveQtyOne = (id: string, next: number | null) => {
@@ -106,22 +135,40 @@ export function LedgerApp() {
         h.id === id ? { ...h, costTwd: next } : h,
       );
       setCustom(updated);
-      saveCustom(updated);
+      saveCustom(updated, profile);
     }
   };
 
   const hideOne = (id: string) => {
     const next = hidden.includes(id) ? hidden : [...hidden, id];
     setHidden(next);
-    saveHidden(next);
+    saveHidden(next, profile);
+  };
+
+  const switchProfile = (id: ProfileId) => {
+    if (id === profile) return;
+    saveProfile(id);
+    setProfile(id);
   };
 
   return (
     <div className="relative min-h-dvh bg-bg text-ink">
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-4xl">
-        <header className="sticky top-0 z-20 flex items-center gap-3 bg-bg px-5 pb-3 pt-safe md:px-8">
-          <div className="min-w-0 flex-1">
-            <p className="font-serif text-xl leading-tight">媽媽的加密帳本</p>
+        <header className="sticky top-0 z-20 bg-bg/80 px-5 pb-3 pt-safe backdrop-blur-md md:px-8">
+          <div className="flex items-center gap-3">
+            <ProfileSwitch value={profile} onChange={switchProfile} />
+            <button
+              type="button"
+              onPointerDown={() => void refresh()}
+              onClick={() => void refresh()}
+              aria-label="更新市價"
+              className="ml-auto flex size-11 items-center justify-center rounded-md bg-paper text-ink shadow-card transition-transform duration-150 ease-out active:scale-95"
+            >
+              <RefreshCw className={cn("size-4", status === "loading" && "animate-spin")} />
+            </button>
+          </div>
+          <div className="mt-3 min-w-0">
+            <p className="font-serif text-xl leading-tight">{meta.title}</p>
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-faint">
               {live ? (
                 <span className="inline-flex items-center gap-1 text-gain">
@@ -137,21 +184,13 @@ export function LedgerApp() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onPointerDown={() => void refresh()}
-            onClick={() => void refresh()}
-            aria-label="更新市價"
-            className="flex size-11 items-center justify-center rounded-md bg-paper text-ink shadow-card transition-transform duration-150 ease-out active:scale-95"
-          >
-            <RefreshCw className={cn("size-4", status === "loading" && "animate-spin")} />
-          </button>
         </header>
 
         <main className="flex-1 px-5 pb-28 md:px-8">
           {tab === "home" ? (
             <OverviewPanel
               view={view}
+              owner={meta.owner}
               lastVisit={lastVisit}
               usdTwd={book?.usdTwd ?? null}
               onOpenGoal={() => setTab("goal")}
@@ -172,14 +211,14 @@ export function LedgerApp() {
               goalTwd={goalTwd}
               onGoalChange={(value) => {
                 setGoalTwd(value);
-                saveGoal(value);
+                saveGoal(value, profile);
               }}
             />
           ) : null}
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper pb-safe">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/90 pb-safe backdrop-blur-md">
         <div className="mx-auto grid max-w-lg grid-cols-3 md:max-w-4xl">
           <TabBtn
             active={tab === "home"}
@@ -221,7 +260,7 @@ export function LedgerApp() {
         onOpenChange={setAdding}
         onSubmit={(entry) => {
           const next = applyTrade({
-            holdings: HOLDINGS,
+            holdings: seed,
             custom,
             qty,
             cost,
@@ -231,9 +270,9 @@ export function LedgerApp() {
           persistQty(next.qty);
           persistCost(next.cost);
           setCustom(next.custom);
-          saveCustom(next.custom);
+          saveCustom(next.custom, profile);
           setHidden(next.hidden);
-          saveHidden(next.hidden);
+          saveHidden(next.hidden, profile);
           setTab("holdings");
         }}
       />

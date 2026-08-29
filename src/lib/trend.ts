@@ -40,7 +40,7 @@ function bagsFromView(view: PortfolioView): Bag[] {
   const map = new Map<string, Bag>();
   for (const h of view.visible) {
     const key = h.priceKey ?? h.symbol;
-    const stable = key === "USDT" || key === "USDT-TYB" || key === "USD1";
+    const stable = key === "USDT" || key === "USDT-TYB" || key === "USD1" || key === "USDC";
     const pair = stable
       ? null
       : (SYMBOL_META[key]?.binance ?? (key ? `${key}USDT` : null));

@@ -141,6 +141,7 @@ function buildQuotes(
 ): Record<string, PriceQuote> {
   const quotes: Record<string, PriceQuote> = {
     USDT: { usd: 1, twd: usdTwd, change24h: 0 },
+    USDC: { usd: 1, twd: usdTwd, change24h: 0 },
     "USDT-TYB": { usd: 1, twd: usdTwd, change24h: 0 },
   };
 

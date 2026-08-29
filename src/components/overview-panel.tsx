@@ -29,6 +29,7 @@ const SLICE_COLORS = [
 
 type Props = {
   view: PortfolioView;
+  owner: string;
   lastVisit: LastVisit | null;
   usdTwd: number | null;
   onOpenGoal: () => void;
@@ -36,9 +37,9 @@ type Props = {
   onAddEntry: () => void;
 };
 
-function buildSummary(view: PortfolioView): string {
+function buildSummary(view: PortfolioView, owner: string): string {
   const lines = [
-    `媽媽的加密帳本`,
+    `${owner}的加密帳本`,
     `現在總資產 ${formatTwd(view.totalTwd)}`,
   ];
   if (view.todayDeltaTwd !== null && view.todayDeltaPct !== null) {
@@ -64,6 +65,7 @@ function buildSummary(view: PortfolioView): string {
 
 export function OverviewPanel({
   view,
+  owner,
   lastVisit,
   usdTwd,
   onOpenGoal,
@@ -86,10 +88,10 @@ export function OverviewPanel({
       : null;
 
   const share = async () => {
-    const text = buildSummary(view);
+    const text = buildSummary(view, owner);
     try {
       if (navigator.share) {
-        await navigator.share({ text, title: "媽媽的加密帳本" });
+        await navigator.share({ text, title: `${owner}的加密帳本` });
         return;
       }
     } catch {
@@ -112,7 +114,7 @@ export function OverviewPanel({
           {formatTwdNumber(view.totalTwd)}
         </p>
 
-        <GoalGapChart view={view} usdTwd={usdTwd} />
+        <GoalGapChart view={view} usdTwd={usdTwd} owner={owner} />
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Stat
@@ -190,7 +192,7 @@ export function OverviewPanel({
         </div>
       </section>
 
-      <TrendChart view={view} usdTwd={usdTwd} />
+      <TrendChart view={view} usdTwd={usdTwd} owner={owner} />
 
       {view.majors.length > 0 ? (
         <section className="rounded-xl bg-paper p-5 shadow-card">

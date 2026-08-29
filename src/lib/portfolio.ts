@@ -1,3 +1,6 @@
+import { DAD_HOLDINGS } from "./dad-holdings";
+import type { ProfileId } from "./profiles";
+
 export const GOAL_TWD = 100_000;
 
 export type SourceId =
@@ -6,7 +9,9 @@ export type SourceId =
   | "okx-web3"
   | "okx-defi"
   | "unknown-ex"
-  | "bitget";
+  | "bitget"
+  | "bitget-spot"
+  | "mexc";
 
 export type HoldingKind = "exchange" | "wallet" | "defi";
 
@@ -36,6 +41,8 @@ export const SOURCES: Record<
   "okx-defi": { label: "OKX DeFi", short: "DeFi", kind: "defi" },
   "unknown-ex": { label: "其他交易所", short: "其他交易所", kind: "exchange" },
   bitget: { label: "Bitget 錢包", short: "Bitget", kind: "wallet" },
+  "bitget-spot": { label: "Bitget 現貨", short: "Bitget", kind: "exchange" },
+  mexc: { label: "MEXC 現貨", short: "MEXC", kind: "exchange" },
 };
 
 export const SYMBOL_META: Record<string, { name: string; binance: string | null }> =
@@ -52,6 +59,7 @@ export const SYMBOL_META: Record<string, { name: string; binance: string | null 
     OP: { name: "Optimism", binance: "OPUSDT" },
     POL: { name: "Polygon", binance: "POLUSDT" },
     CRCLX: { name: "Circle 股票代幣", binance: "CRCLXUSDT" },
+    CRCLB: { name: "Circle 股票代幣", binance: "CRCLBUSDT" },
     SPCXB: { name: "SpaceX 股票代幣", binance: "SPCXBUSDT" },
     TSLAB: { name: "Tesla 股票代幣", binance: "TSLABUSDT" },
     BITLAYER_BTC: { name: "Bitlayer 比特幣", binance: "BTCUSDT" },
@@ -60,6 +68,7 @@ export const SYMBOL_META: Record<string, { name: string; binance: string | null 
     USD1: { name: "USD1", binance: "USD1USDT" },
     ERA: { name: "Caldera", binance: "ERAUSDT" },
     USDT: { name: "Tether", binance: null },
+    USDC: { name: "USD Coin", binance: null },
     "USDT-TYB": { name: "PancakeSwap", binance: null },
     SYND: { name: "Syndicate", binance: "SYNDUSDT" },
     LUCE: { name: "LUCE", binance: "LUCEUSDT" },
@@ -76,6 +85,15 @@ export const SYMBOL_META: Record<string, { name: string; binance: string | null 
     PEPE: { name: "PEPE", binance: "PEPEUSDT" },
     WLD: { name: "Worldcoin", binance: "WLDUSDT" },
     TRX: { name: "TRON", binance: "TRXUSDT" },
+    SHIB: { name: "SHIBA INU", binance: "SHIBUSDT" },
+    SXT: { name: "Space and Time", binance: "SXTUSDT" },
+    ARTX: { name: "ULTILAND", binance: null },
+    GENIUS: { name: "Genius Terminal", binance: null },
+    ACT: { name: "Act I", binance: "ACTUSDT" },
+    WLFI: { name: "WLFI", binance: "WLFIUSDT" },
+    MON: { name: "MON", binance: null },
+    NODE: { name: "NODE", binance: null },
+    SPACEXPRE: { name: "SpaceX 預上市", binance: null },
     OTHER: { name: "其他小額資產", binance: null },
   };
 
@@ -725,9 +743,10 @@ export function buildPortfolio(
   qtyOverrides: Record<string, number> = {},
   goalTwd: number = GOAL_TWD,
   extras: PortfolioExtras = {},
+  seed: Holding[] = HOLDINGS,
 ): PortfolioView {
   const hidden = new Set(extras.hiddenIds ?? []);
-  const merged: Holding[] = [...HOLDINGS, ...(extras.custom ?? [])].map((h) =>
+  const merged: Holding[] = [...seed, ...(extras.custom ?? [])].map((h) =>
     hidden.has(h.id) ? { ...h, hidden: true } : h,
   );
   const holdings = merged.map((h) =>
@@ -888,4 +907,8 @@ export function basketValue(view: PortfolioView, symbols: readonly string[]): nu
   return view.holdings
     .filter((h) => set.has(h.symbol) || (h.priceKey !== null && set.has(h.priceKey)))
     .reduce((s, h) => s + h.valueTwd, 0);
+}
+
+export function seedHoldings(profile: ProfileId) {
+  return profile === "dad" ? DAD_HOLDINGS : HOLDINGS;
 }

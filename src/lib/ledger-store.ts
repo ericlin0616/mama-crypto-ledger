@@ -1,13 +1,10 @@
 import type { Holding, SourceId } from "./portfolio";
 import { SYMBOL_META } from "./portfolio";
+import type { ProfileId } from "./profiles";
 
-const QTY_KEY = "mama-ledger-qty-v1";
-const GOAL_KEY = "mama-ledger-goal-v1";
-const COST_KEY = "mama-ledger-cost-v1";
-const CUSTOM_KEY = "mama-ledger-custom-v1";
-const HIDDEN_KEY = "mama-ledger-hidden-v1";
-const LAST_KEY = "mama-ledger-last-v1";
-const HISTORY_KEY = "mama-ledger-history-v1";
+function ns(profile: ProfileId, name: string) {
+  return profile === "dad" ? `papa-ledger-${name}` : `mama-ledger-${name}`;
+}
 
 export type LastVisit = { t: number; totalTwd: number };
 export type HistoryPoint = { day: string; t: number; totalTwd: number };
@@ -27,59 +24,59 @@ function writeJson(key: string, value: unknown) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function loadQty(): Record<string, number> {
-  const parsed = readJson<Record<string, number>>(QTY_KEY, {});
+export function loadQty(profile: ProfileId = "mom"): Record<string, number> {
+  const parsed = readJson<Record<string, number>>(ns(profile, "qty-v1"), {});
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
-export function saveQty(qty: Record<string, number>) {
-  writeJson(QTY_KEY, qty);
+export function saveQty(qty: Record<string, number>, profile: ProfileId = "mom") {
+  writeJson(ns(profile, "qty-v1"), qty);
 }
 
-export function loadGoal(fallback: number): number {
-  const n = Number(readJson<string | number>(GOAL_KEY, fallback));
+export function loadGoal(fallback: number, profile: ProfileId = "mom"): number {
+  const n = Number(readJson<string | number>(ns(profile, "goal-v1"), fallback));
   return Number.isFinite(n) && n >= 1000 ? n : fallback;
 }
 
-export function saveGoal(value: number) {
-  window.localStorage.setItem(GOAL_KEY, String(value));
+export function saveGoal(value: number, profile: ProfileId = "mom") {
+  window.localStorage.setItem(ns(profile, "goal-v1"), String(value));
 }
 
-export function loadCost(): Record<string, number> {
-  const parsed = readJson<Record<string, number>>(COST_KEY, {});
+export function loadCost(profile: ProfileId = "mom"): Record<string, number> {
+  const parsed = readJson<Record<string, number>>(ns(profile, "cost-v1"), {});
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
-export function saveCost(cost: Record<string, number>) {
-  writeJson(COST_KEY, cost);
+export function saveCost(cost: Record<string, number>, profile: ProfileId = "mom") {
+  writeJson(ns(profile, "cost-v1"), cost);
 }
 
-export function loadCustom(): Holding[] {
-  const parsed = readJson<Holding[]>(CUSTOM_KEY, []);
+export function loadCustom(profile: ProfileId = "mom"): Holding[] {
+  const parsed = readJson<Holding[]>(ns(profile, "custom-v1"), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
-export function saveCustom(list: Holding[]) {
-  writeJson(CUSTOM_KEY, list);
+export function saveCustom(list: Holding[], profile: ProfileId = "mom") {
+  writeJson(ns(profile, "custom-v1"), list);
 }
 
-export function loadHidden(): string[] {
-  const parsed = readJson<string[]>(HIDDEN_KEY, []);
+export function loadHidden(profile: ProfileId = "mom"): string[] {
+  const parsed = readJson<string[]>(ns(profile, "hidden-v1"), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
-export function saveHidden(ids: string[]) {
-  writeJson(HIDDEN_KEY, ids);
+export function saveHidden(ids: string[], profile: ProfileId = "mom") {
+  writeJson(ns(profile, "hidden-v1"), ids);
 }
 
-export function loadLastVisit(): LastVisit | null {
-  const parsed = readJson<LastVisit | null>(LAST_KEY, null);
+export function loadLastVisit(profile: ProfileId = "mom"): LastVisit | null {
+  const parsed = readJson<LastVisit | null>(ns(profile, "last-v1"), null);
   if (!parsed || !Number.isFinite(parsed.totalTwd) || !parsed.t) return null;
   return parsed;
 }
 
-export function saveLastVisit(totalTwd: number) {
-  writeJson(LAST_KEY, { t: Date.now(), totalTwd } satisfies LastVisit);
+export function saveLastVisit(totalTwd: number, profile: ProfileId = "mom") {
+  writeJson(ns(profile, "last-v1"), { t: Date.now(), totalTwd } satisfies LastVisit);
 }
 
 export function taipeiDay(ts = Date.now()): string {
@@ -91,17 +88,17 @@ export function taipeiDay(ts = Date.now()): string {
   }).format(new Date(ts));
 }
 
-export function loadHistory(): HistoryPoint[] {
-  const parsed = readJson<HistoryPoint[]>(HISTORY_KEY, []);
+export function loadHistory(profile: ProfileId = "mom"): HistoryPoint[] {
+  const parsed = readJson<HistoryPoint[]>(ns(profile, "history-v1"), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
-export function recordHistory(totalTwd: number): HistoryPoint[] {
-  if (!Number.isFinite(totalTwd) || totalTwd < 1) return loadHistory();
+export function recordHistory(totalTwd: number, profile: ProfileId = "mom"): HistoryPoint[] {
+  if (!Number.isFinite(totalTwd) || totalTwd < 1) return loadHistory(profile);
   const day = taipeiDay();
-  const prev = loadHistory().filter((p) => p.day !== day);
+  const prev = loadHistory(profile).filter((p) => p.day !== day);
   const next = [...prev, { day, t: Date.now(), totalTwd }].slice(-30);
-  writeJson(HISTORY_KEY, next);
+  writeJson(ns(profile, "history-v1"), next);
   return next;
 }
 

@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   view: PortfolioView;
   usdTwd: number | null;
+  owner: string;
 };
 
 function axisTwd(value: number): string {
@@ -58,7 +59,7 @@ function ChartTip({
   );
 }
 
-export function GoalGapChart({ view, usdTwd }: Props) {
+export function GoalGapChart({ view, usdTwd, owner }: Props) {
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [ready, setReady] = useState(false);
@@ -102,7 +103,7 @@ export function GoalGapChart({ view, usdTwd }: Props) {
             {reached ? "已達標" : formatTwd(view.gapTwd)}
           </p>
           <p className="mt-1 text-xs text-muted">
-            媽媽的目標{formatGoalWan(goal)}全賣
+            {owner}的目標{formatGoalWan(goal)}全賣
             {reached ? "" : ` · 每 12 小時看一次`}
           </p>
         </div>
