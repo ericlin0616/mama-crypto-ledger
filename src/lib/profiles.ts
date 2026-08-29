@@ -22,7 +22,7 @@ export const PROFILES: Record<ProfileId, ProfileMeta> = {
     id: "dad",
     owner: "爸爸",
     title: "爸爸的加密帳本",
-    goalTwd: 150_000,
+    goalTwd: 130_000,
     costTwd: 100_000,
     themeColor: "#d8dee8",
   },

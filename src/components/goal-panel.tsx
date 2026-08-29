@@ -25,7 +25,7 @@ type Props = {
   onGoalChange: (value: number) => void;
 };
 
-const GOAL_PRESETS = [100_000, 110_000, 120_000, 150_000, 200_000];
+const GOAL_PRESETS = [100_000, 110_000, 120_000, 130_000, 150_000, 200_000];
 const BTC_PRESETS = [80_000, 90_000, 100_000, 120_000, 150_000];
 
 export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {

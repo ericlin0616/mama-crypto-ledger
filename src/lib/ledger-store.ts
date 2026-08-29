@@ -35,6 +35,7 @@ export function saveQty(qty: Record<string, number>, profile: ProfileId = "mom")
 
 export function loadGoal(fallback: number, profile: ProfileId = "mom"): number {
   const n = Number(readJson<string | number>(ns(profile, "goal-v1"), fallback));
+  if (profile === "dad" && n === 150_000) return fallback;
   return Number.isFinite(n) && n >= 1000 ? n : fallback;
 }
 
