@@ -2,8 +2,8 @@ import { cn } from "@/lib/utils";
 
 type Winner = "mom" | "dad" | "tie";
 
-const MOM_SRC = `${import.meta.env.BASE_URL}battle/mom.jpg`;
-const DAD_SRC = `${import.meta.env.BASE_URL}battle/dad.jpg`;
+const MOM_SRC = `${import.meta.env.BASE_URL}battle/mom-v2.jpg`;
+const DAD_SRC = `${import.meta.env.BASE_URL}battle/dad-v2.jpg`;
 
 function Crown({ className }: { className?: string }) {
   return (
