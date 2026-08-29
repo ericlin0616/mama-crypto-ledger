@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { useState } from "react";
 import { ChevronRight, Plus, Share2 } from "lucide-react";
-import { ProgressRing } from "@/components/progress-ring";
+import { GoalGapChart } from "@/components/goal-gap-chart";
 import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
 import {
   formatGoalShort,
-  formatGoalWan,
   formatPct,
   formatRelative,
   formatSignedPct,
@@ -72,11 +70,7 @@ export function OverviewPanel({
   onOpenHoldings,
   onAddEntry,
 }: Props) {
-  const [chartReady, setChartReady] = useState(false);
   const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    setChartReady(true);
-  }, []);
 
   const goal = view.goalTwd;
   const reached = view.totalTwd >= goal;
@@ -118,21 +112,12 @@ export function OverviewPanel({
           {formatTwdNumber(view.totalTwd)}
         </p>
 
-        <ProgressRing progress={view.progress} className="mt-5">
-          <p className="font-serif text-3xl tabular-nums leading-none">
-            {formatPct(Math.min(view.progress, 9.99), 0)}
-          </p>
-          <p className="mt-1 text-[11px] leading-snug text-muted">
-            媽媽的目標
-            <br />
-            {formatGoalWan(goal)}全賣
-          </p>
-        </ProgressRing>
+        <GoalGapChart view={view} usdTwd={usdTwd} />
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Stat
-            label={reached ? "已超過目標" : "還差"}
-            value={formatTwd(Math.abs(view.gapTwd))}
+            label="完成度"
+            value={formatPct(Math.min(view.progress, 9.99), 0)}
           />
           <Stat
             label={view.totalPnlTwd !== null && view.totalPnlTwd >= 0 ? "估算獲利" : "估算虧損"}
@@ -245,41 +230,31 @@ export function OverviewPanel({
           <h2 className="font-serif text-lg">幣種佔比</h2>
           <p className="text-xs text-faint">前五大 + 其他</p>
         </div>
-        <div className="pointer-events-none mt-3 h-48 overflow-hidden">
-          {chartReady ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={58}
-                  outerRadius={82}
-                  paddingAngle={2}
-                  stroke="none"
-                >
-                  {pieData.map((entry, i) => (
-                    <Cell key={entry.name} fill={SLICE_COLORS[i] ?? "var(--color-slice-6)"} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          ) : null}
-        </div>
-        <ul className="mt-1 flex flex-col gap-3">
+        <ul className="mt-4 flex flex-col gap-4">
           {pieData.map((row, i) => {
             const share = view.totalTwd > 0 ? row.value / view.totalTwd : 0;
             return (
-              <li key={row.name} className="flex items-center gap-3">
-                <span
-                  className="size-2.5 shrink-0 rounded-pill"
-                  style={{ background: SLICE_COLORS[i] }}
-                />
-                <span className="flex-1 text-sm">{row.name}</span>
-                <span className="text-sm tabular-nums text-muted">{formatPct(share)}</span>
-                <span className="w-20 text-right text-sm tabular-nums">
-                  {formatTwd(row.value)}
-                </span>
+              <li key={row.name}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm">
+                    <span
+                      className="size-2.5 shrink-0 rounded-pill"
+                      style={{ background: SLICE_COLORS[i] }}
+                    />
+                    {row.name}
+                  </span>
+                  <span className="text-sm tabular-nums">{formatTwd(row.value)}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
+                  <div
+                    className="h-full rounded-pill transition-[width] duration-500 ease-out"
+                    style={{
+                      width: `${Math.max(2, share * 100)}%`,
+                      background: SLICE_COLORS[i],
+                    }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-faint">{formatPct(share)}</p>
               </li>
             );
           })}

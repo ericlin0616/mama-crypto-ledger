@@ -1,6 +1,6 @@
 import { SYMBOL_META, type PortfolioView } from "./portfolio";
 
-export type TrendRange = "7d" | "30d" | "90d";
+export type TrendRange = "12h" | "7d" | "30d" | "90d";
 export type TrendPoint = {
   t: number;
   totalTwd: number;
@@ -16,6 +16,7 @@ type Bag = {
 };
 
 const RANGE: Record<TrendRange, { interval: string; limit: number; okx: string }> = {
+  "12h": { interval: "12h", limit: 14, okx: "12H" },
   "7d": { interval: "4h", limit: 42, okx: "4H" },
   "30d": { interval: "1d", limit: 30, okx: "1D" },
   "90d": { interval: "1d", limit: 90, okx: "1D" },

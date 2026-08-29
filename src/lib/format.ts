@@ -104,3 +104,14 @@ export function formatMd(ts: number): string {
     day: "numeric",
   }).format(new Date(ts));
 }
+
+export function formatSlot12h(ts: number): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Taipei",
+      hour: "2-digit",
+      hour12: false,
+    }).format(new Date(ts)),
+  );
+  return `${formatMd(ts)} ${hour < 12 ? "早上" : "晚上"}`;
+}
