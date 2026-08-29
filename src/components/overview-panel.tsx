@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Plus, Share2 } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { GoalGapChart } from "@/components/goal-gap-chart";
 import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,8 @@ import {
   formatWan,
 } from "@/lib/format";
 import type { LastVisit } from "@/lib/ledger-store";
-import { SOURCES, type PortfolioView } from "@/lib/portfolio";
+import { SOURCES, isStableSymbol, type PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
-
-const SLICE_COLORS = [
-  "var(--color-slice-1)",
-  "var(--color-slice-2)",
-  "var(--color-slice-3)",
-  "var(--color-slice-4)",
-  "var(--color-slice-5)",
-  "var(--color-slice-6)",
-];
 
 type Props = {
   view: PortfolioView;
@@ -33,8 +24,6 @@ type Props = {
   lastVisit: LastVisit | null;
   usdTwd: number | null;
   onOpenGoal: () => void;
-  onOpenHoldings: () => void;
-  onAddEntry: () => void;
 };
 
 function buildSummary(view: PortfolioView, owner: string): string {
@@ -69,30 +58,32 @@ export function OverviewPanel({
   lastVisit,
   usdTwd,
   onOpenGoal,
-  onOpenHoldings,
-  onAddEntry,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
   const goal = view.goalTwd;
   const reached = view.totalTwd >= goal;
-  const top = view.bySymbol.slice(0, 5);
-  const restValue = view.bySymbol.slice(5).reduce((s, r) => s + r.valueTwd, 0);
-  const pieData = [
-    ...top.map((row) => ({
-      name: row.name,
-      value: row.valueTwd,
-      grouped: row.grouped,
-      valueUsd: row.valueUsd,
-    })),
-    ...(restValue > 0
-      ? [{ name: "其他", value: restValue, grouped: false, valueUsd: null as number | null }]
-      : []),
-  ];
+  const cash = view.bySymbol.find((row) => row.grouped);
+  const cashTwd = cash?.valueTwd ?? 0;
+  const coinTwd = Math.max(0, view.totalTwd - cashTwd);
   const visitDelta =
     lastVisit && lastVisit.totalTwd > 0 && Date.now() - lastVisit.t > 3 * 60_000
       ? view.totalTwd - lastVisit.totalTwd
       : null;
+
+  const mover = view.visible
+    .filter(
+      (h) =>
+        !isStableSymbol(h.symbol) &&
+        h.change24h !== null &&
+        h.valueTwd >= 1,
+    )
+    .map((h) => ({
+      name: h.name,
+      change: h.change24h ?? 0,
+      impact: h.valueTwd - h.valueTwd / (1 + (h.change24h ?? 0)),
+    }))
+    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))[0];
 
   const share = async () => {
     const text = buildSummary(view, owner);
@@ -119,6 +110,10 @@ export function OverviewPanel({
         <p className="text-sm font-medium text-muted">目前總資產</p>
         <p className="mt-1 font-serif text-5xl leading-tight tracking-tight tabular-nums">
           {formatTwdNumber(view.totalTwd)}
+        </p>
+        <p className="mt-1 text-xs text-faint">
+          台幣
+          {usdTwd ? ` · 1 美元 = ${formatTwd(usdTwd)}` : ""}
         </p>
 
         <GoalGapChart view={view} usdTwd={usdTwd} owner={owner} />
@@ -182,6 +177,9 @@ export function OverviewPanel({
           {reached
             ? `已經達到 ${formatGoalShort(goal)} 了。`
             : `現在大約 ${formatWan(view.totalTwd)}。想到 ${formatGoalShort(goal)}，還差 ${formatWan(view.gapTwd)}，相當於整體再漲 ${formatPct(view.neededRatio)}。`}
+          {mover
+            ? ` 今天影響最大的是${mover.name}，帳上大約 ${formatSignedTwd(mover.impact)}。`
+            : ""}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -199,6 +197,57 @@ export function OverviewPanel({
         </div>
       </section>
 
+      <section className="rounded-xl bg-paper p-5 shadow-card">
+        <h2 className="font-serif text-lg">錢放哪一種</h2>
+        <ul className="mt-4 flex flex-col gap-4">
+          <li>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm">穩定幣（現金）</span>
+              <span className="text-sm tabular-nums">換成 {formatTwd(cashTwd)}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
+              <div
+                className="h-full rounded-pill bg-accent transition-[width] duration-500 ease-out"
+                style={{
+                  width: `${Math.max(2, view.totalTwd > 0 ? (cashTwd / view.totalTwd) * 100 : 0)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-faint">
+              {view.totalTwd > 0 ? formatPct(cashTwd / view.totalTwd) : "—"}
+              {cash?.valueUsd
+                ? ` · 約 ${formatUsd(cash.valueUsd, cash.valueUsd >= 100 ? 0 : 2)}`
+                : ""}
+            </p>
+          </li>
+          <li>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm">其他幣</span>
+              <span className="text-sm tabular-nums">{formatTwd(coinTwd)}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
+              <div
+                className="h-full rounded-pill bg-ink transition-[width] duration-500 ease-out"
+                style={{
+                  width: `${Math.max(2, view.totalTwd > 0 ? (coinTwd / view.totalTwd) * 100 : 0)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-faint">
+              {view.totalTwd > 0 ? formatPct(coinTwd / view.totalTwd) : "—"}
+            </p>
+          </li>
+        </ul>
+        {view.investedTwd > 0 ? (
+          <p className="mt-4 text-sm leading-relaxed text-muted">
+            當初總投入 {formatTwd(view.investedTwd)}
+            {view.totalPnlTwd !== null
+              ? `，現在${view.totalPnlTwd >= 0 ? "多" : "少"}了 ${formatTwd(Math.abs(view.totalPnlTwd))}。`
+              : "。"}
+          </p>
+        ) : null}
+      </section>
+
       <TrendChart view={view} usdTwd={usdTwd} owner={owner} />
 
       {view.majors.length > 0 ? (
@@ -214,6 +263,9 @@ export function OverviewPanel({
                 <span className="text-right">
                   <span className="block font-serif text-lg tabular-nums">
                     {formatUsd(row.usd, row.usd >= 100 ? 0 : 2)}
+                  </span>
+                  <span className="block text-xs tabular-nums text-faint">
+                    換成 {formatTwd(row.twd)}
                   </span>
                   <span
                     className={cn(
@@ -233,54 +285,6 @@ export function OverviewPanel({
           </ul>
         </section>
       ) : null}
-
-      <section className="rounded-xl bg-paper p-5 shadow-card">
-        <div className="flex items-end justify-between">
-          <h2 className="font-serif text-lg">幣種佔比</h2>
-          <p className="text-xs text-faint">前五大 + 其他</p>
-        </div>
-        <ul className="mt-4 flex flex-col gap-4">
-          {pieData.map((row, i) => {
-            const share = view.totalTwd > 0 ? row.value / view.totalTwd : 0;
-            return (
-              <li key={row.name}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm">
-                    <span
-                      className="size-2.5 shrink-0 rounded-pill"
-                      style={{ background: SLICE_COLORS[i] }}
-                    />
-                    {row.name}
-                  </span>
-                  <span className="text-sm tabular-nums">
-                    {row.grouped ? `換成 ${formatTwd(row.value)}` : formatTwd(row.value)}
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
-                  <div
-                    className="h-full rounded-pill transition-[width] duration-500 ease-out"
-                    style={{
-                      width: `${Math.max(2, share * 100)}%`,
-                      background: SLICE_COLORS[i],
-                    }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-faint">
-                  {formatPct(share)}
-                  {row.grouped && row.valueUsd !== null
-                    ? ` · 約 ${formatUsd(row.valueUsd, row.valueUsd >= 100 ? 0 : 2)}`
-                    : ""}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-        {top[0] ? (
-          <p className="mt-4 text-sm leading-relaxed text-muted">
-            {top[0].name}就佔了 {formatPct(top[0].share)}，走勢幾乎決定這本帳。
-          </p>
-        ) : null}
-      </section>
 
       <section className="rounded-xl bg-paper p-5 shadow-card">
         <h2 className="font-serif text-lg">放在哪裡</h2>
@@ -309,27 +313,6 @@ export function OverviewPanel({
           ))}
         </ul>
       </section>
-
-      <div className="grid grid-cols-1 gap-2 md:col-span-2 md:grid-cols-2">
-        <button
-          type="button"
-          onPointerDown={onAddEntry}
-          onClick={onAddEntry}
-          className="flex min-h-14 items-center justify-between rounded-xl bg-paper px-5 text-left shadow-card transition-transform duration-150 ease-out active:scale-[0.98]"
-        >
-          <span className="text-sm font-medium">記一筆買進或賣出</span>
-          <Plus className="size-5 text-muted" />
-        </button>
-        <button
-          type="button"
-          onPointerDown={onOpenHoldings}
-          onClick={onOpenHoldings}
-          className="flex min-h-14 items-center justify-between rounded-xl bg-paper px-5 text-left shadow-card transition-transform duration-150 ease-out active:scale-[0.98]"
-        >
-          <span className="text-sm font-medium">看全部 {view.visible.length} 筆持倉</span>
-          <ChevronRight className="size-5 text-muted" />
-        </button>
-      </div>
     </div>
   );
 }

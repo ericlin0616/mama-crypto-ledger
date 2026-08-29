@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
@@ -10,6 +10,7 @@ import {
   formatUsd,
 } from "@/lib/format";
 import {
+  SOURCES,
   isStableSymbol,
   type SourceId,
   type ValuedHolding,
@@ -26,16 +27,6 @@ const SLICE_COLORS = [
   "var(--color-slice-6)",
 ];
 
-const FILTERS: { id: "all" | SourceId; label: string }[] = [
-  { id: "all", label: "全部" },
-  { id: "binance-spot", label: "Binance" },
-  { id: "okx-defi", label: "DeFi" },
-  { id: "unknown-ex", label: "其他交易所" },
-  { id: "binance-web3", label: "Binance 錢包" },
-  { id: "okx-web3", label: "OKX 錢包" },
-  { id: "bitget", label: "Bitget" },
-];
-
 type Props = {
   view: PortfolioView;
   onSelect: (id: string) => void;
@@ -50,8 +41,25 @@ type PieRow = {
 };
 
 export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
+  const [filter, setFilter] = useState<"all" | SourceId>("all");
   const [mode, setMode] = useState<"coin" | "account">("coin");
+
+  const sourceFilters = useMemo(
+    () => [
+      { id: "all" as const, label: "全部" },
+      ...view.bySource.map((row) => ({
+        id: row.source,
+        label: SOURCES[row.source].short,
+      })),
+    ],
+    [view.bySource],
+  );
+
+  useEffect(() => {
+    if (filter !== "all" && !view.bySource.some((row) => row.source === filter)) {
+      setFilter("all");
+    }
+  }, [filter, view.bySource]);
 
   const coinRows = useMemo(() => {
     return view.bySymbol
@@ -198,7 +206,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
         ) : null}
 
         <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1">
-          {FILTERS.map((f) => (
+          {sourceFilters.map((f) => (
             <button
               key={f.id}
               type="button"

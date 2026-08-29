@@ -8,7 +8,7 @@ import { HoldingsPanel } from "@/components/holdings-panel";
 import { OverviewPanel } from "@/components/overview-panel";
 import { ProfileSwitch } from "@/components/profile-switch";
 import { usePrices } from "@/hooks/use-prices";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatTwd } from "@/lib/format";
 import {
   applyTrade,
   loadCost,
@@ -45,6 +45,29 @@ import { cn } from "@/lib/utils";
 
 type Tab = "home" | "holdings" | "goal" | "battle";
 
+const TAB_KEY = "family-ledger-tab";
+
+function loadTab(): Tab {
+  if (typeof window === "undefined") return "home";
+  try {
+    const value = window.localStorage.getItem(TAB_KEY);
+    if (value === "holdings" || value === "goal" || value === "battle" || value === "home") {
+      return value;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "home";
+}
+
+function saveTab(tab: Tab) {
+  try {
+    window.localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function LedgerApp() {
   const [profile, setProfile] = useState<ProfileId>(() => loadProfile());
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -56,7 +79,7 @@ export function LedgerApp() {
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [tab, setTab] = useState<Tab>("home");
+  const [tab, setTab] = useState<Tab>(() => loadTab());
 
   const meta = PROFILES[profile];
   const seed = useMemo(() => seedHoldings(profile), [profile]);
@@ -164,6 +187,11 @@ export function LedgerApp() {
     setProfile(id);
   };
 
+  const goTab = (next: Tab) => {
+    setTab(next);
+    saveTab(next);
+  };
+
   return (
     <div className="relative min-h-dvh bg-bg text-ink">
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-4xl">
@@ -187,6 +215,7 @@ export function LedgerApp() {
                 <span className="inline-flex items-center gap-1 text-gain">
                   <span className="size-1.5 rounded-pill bg-gain" />
                   即時 {book ? formatTime(book.fetchedAt) : ""} 更新
+                  {book?.usdTwd ? ` · 1 美元 ${formatTwd(book.usdTwd)}` : ""}
                 </span>
               ) : status === "loading" ? (
                 "正在更新市價…"
@@ -206,9 +235,7 @@ export function LedgerApp() {
               owner={meta.owner}
               lastVisit={lastVisit}
               usdTwd={book?.usdTwd ?? null}
-              onOpenGoal={() => setTab("goal")}
-              onOpenHoldings={() => setTab("holdings")}
-              onAddEntry={() => setAdding(true)}
+              onOpenGoal={() => goTab("goal")}
             />
           ) : null}
           {tab === "holdings" ? (
@@ -238,25 +265,25 @@ export function LedgerApp() {
         <div className="mx-auto grid max-w-lg grid-cols-4 md:max-w-4xl">
           <TabBtn
             active={tab === "home"}
-            onClick={() => setTab("home")}
+            onClick={() => goTab("home")}
             icon={<BookOpen className="size-5" />}
             label="總覽"
           />
           <TabBtn
             active={tab === "holdings"}
-            onClick={() => setTab("holdings")}
+            onClick={() => goTab("holdings")}
             icon={<Wallet className="size-5" />}
             label="持倉"
           />
           <TabBtn
             active={tab === "battle"}
-            onClick={() => setTab("battle")}
+            onClick={() => goTab("battle")}
             icon={<Swords className="size-5" />}
             label="對決"
           />
           <TabBtn
             active={tab === "goal"}
-            onClick={() => setTab("goal")}
+            onClick={() => goTab("goal")}
             icon={<Target className="size-5" />}
             label="達標"
           />
