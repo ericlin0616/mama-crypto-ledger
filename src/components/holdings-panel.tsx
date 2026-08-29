@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { CoinMark } from "@/components/coin-mark";
 import {
   formatPct,
   formatQty,
@@ -39,6 +40,7 @@ type PieRow = {
   value: number;
   holdingId: string | null;
   color: string;
+  symbol?: string;
 };
 
 export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
@@ -84,8 +86,8 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
         title: row.name,
         subtitle: row.grouped
           ? row.valueUsd !== null
-            ? `約 ${formatUsd(row.valueUsd, row.valueUsd >= 100 ? 0 : 2)}`
-            : "美元穩定幣"
+            ? `等同美金 · 約 ${formatUsd(row.valueUsd, row.valueUsd >= 100 ? 0 : 2)}`
+            : "等同美金"
           : `${row.symbol}${row.quantity !== null ? ` · ${formatQty(row.quantity)}` : ""}`,
         value: row.valueTwd,
         valueUsd: row.valueUsd,
@@ -113,6 +115,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
             name: row.title,
             value: row.value,
             holdingId: row.holdingId,
+            symbol: row.key,
           }))
         : groups.map((g) => ({
             name: g.label,
@@ -124,7 +127,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
     const rows = [
       ...top.map((row, i) => ({ ...row, color: SLICE_COLORS[i] })),
       ...(rest > 0
-        ? [{ name: "其他", value: rest, holdingId: null, color: SLICE_COLORS[5] }]
+        ? [{ name: "其他", value: rest, holdingId: null, symbol: undefined, color: SLICE_COLORS[5] }]
         : []),
     ];
     return rows;
@@ -201,10 +204,14 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
             <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-2">
               {pieRows.map((row) => (
                 <li key={row.name} className="flex items-center gap-2 text-xs">
-                  <span
-                    className="size-2.5 shrink-0 rounded-pill"
-                    style={{ background: row.color }}
-                  />
+                  {row.symbol ? (
+                    <CoinMark symbol={row.symbol} name={row.name} className="size-4 ring-0 shadow-none" />
+                  ) : (
+                    <span
+                      className="size-2.5 shrink-0 rounded-pill"
+                      style={{ background: row.color }}
+                    />
+                  )}
                   <span className="min-w-0 truncate">{row.name}</span>
                   <span className="ml-auto tabular-nums text-faint">
                     {pieTotal > 0 ? formatPct(row.value / pieTotal) : "—"}
@@ -243,12 +250,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                 onClick={() => row.holdingId && onSelect(row.holdingId)}
                 className="flex w-full min-h-16 items-center gap-3 px-4 py-3 text-left transition-transform duration-150 ease-out active:scale-[0.99]"
               >
-                <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-md font-serif text-xs text-paper"
-                  style={{ background: SLICE_COLORS[Math.min(i, 5)] }}
-                >
-                  {row.title.slice(0, 1)}
-                </span>
+                <CoinMark symbol={row.key} name={row.title} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{row.title}</span>
                   <span className="block truncate text-xs text-faint">{row.subtitle}</span>
@@ -270,9 +272,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                     )}
                   >
                     {row.grouped
-                      ? row.usdTwd
-                        ? `1 美元 = ${formatTwd(row.usdTwd)}`
-                        : "依即時匯率"
+                      ? "等同美金"
                       : row.change24h !== null
                         ? `今日 ${formatSignedPct(row.change24h)}`
                         : row.pnlPct === null
@@ -288,9 +288,13 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                       key={part.symbol}
                       className="flex items-baseline justify-between gap-3 py-1.5 text-xs"
                     >
-                      <span className="text-muted">
-                        {part.symbol}
-                        {part.quantity !== null ? ` · ${formatQty(part.quantity)}` : ""}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <CoinMark symbol={part.symbol} name={part.name} className="size-5" />
+                        <span className="text-muted">
+                          {part.symbol}
+                          {part.quantity !== null ? ` · ${formatQty(part.quantity)}` : ""}
+                          <span className="text-faint"> · 等同美金</span>
+                        </span>
                       </span>
                       <span className="tabular-nums text-faint">
                         換成 {formatTwd(part.valueTwd)}
@@ -332,12 +336,16 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                   {stableTwd >= 0.01 ? (
                     <li className="py-2">
                       <div className="flex items-center justify-between gap-3">
-                        <span>
-                          <span className="block text-sm">穩定幣</span>
-                          <span className="block text-xs text-faint">
-                            {stableUsd !== null
-                              ? `約 ${formatUsd(stableUsd, stableUsd >= 100 ? 0 : 2)}`
-                              : stables.map((h) => h.symbol).join(" · ")}
+                        <span className="flex min-w-0 items-center gap-3">
+                          <CoinMark symbol="STABLE" name="穩定幣" />
+                          <span>
+                            <span className="block text-sm">穩定幣</span>
+                            <span className="block text-xs text-faint">
+                              等同美金
+                              {stableUsd !== null
+                                ? ` · 約 ${formatUsd(stableUsd, stableUsd >= 100 ? 0 : 2)}`
+                                : ""}
+                            </span>
                           </span>
                         </span>
                         <span className="text-right">
@@ -428,9 +436,10 @@ function HoldingRow({
       type="button"
       onPointerDown={() => onSelect(holding.id)}
       onClick={() => onSelect(holding.id)}
-      className="flex w-full min-h-12 items-center justify-between gap-3 py-2 text-left"
+      className="flex w-full min-h-12 items-center gap-3 py-2 text-left"
     >
-      <span className="min-w-0">
+      <CoinMark symbol={holding.symbol} name={holding.name} className="size-8" />
+      <span className="min-w-0 flex-1">
         <span className="block truncate text-sm">{holding.name}</span>
         <span className="block text-xs text-faint">
           {holding.quantityUsed !== null ? formatQty(holding.quantityUsed) : holding.symbol}

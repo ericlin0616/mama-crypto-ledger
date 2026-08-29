@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Share2 } from "lucide-react";
+import { CoinMark } from "@/components/coin-mark";
 import { GoalGapChart } from "@/components/goal-gap-chart";
 import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
@@ -215,7 +216,10 @@ export function OverviewPanel({
         <ul className="mt-4 flex flex-col gap-4">
           <li>
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-sm">穩定幣（現金）</span>
+              <span className="flex items-center gap-2 text-sm">
+                <CoinMark symbol="STABLE" name="穩定幣" className="size-5 ring-0" />
+                穩定幣（等同美金）
+              </span>
               <span className="text-sm tabular-nums">換成 {formatTwd(Math.round(cashShown))}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
@@ -271,10 +275,13 @@ export function OverviewPanel({
           <h2 className="font-serif text-lg">現在行情</h2>
           <ul className="mt-4 flex flex-col gap-3">
             {view.majors.map((row) => (
-              <li key={row.symbol} className="flex items-baseline justify-between gap-3">
-                <span>
-                  <span className="block text-sm">{row.name}</span>
-                  <span className="block text-xs text-faint">{row.symbol}</span>
+              <li key={row.symbol} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-3">
+                  <CoinMark symbol={row.symbol} name={row.name} className="size-9" />
+                  <span>
+                    <span className="block text-sm">{row.name}</span>
+                    <span className="block text-xs text-faint">{row.symbol}</span>
+                  </span>
                 </span>
                 <span className="text-right">
                   <span className="block font-serif text-lg tabular-nums">

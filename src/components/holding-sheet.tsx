@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CoinMark } from "@/components/coin-mark";
 import {
   formatPct,
   formatQty,
@@ -74,13 +75,18 @@ export function HoldingSheet({
       >
         <div className="mx-auto mt-3 h-1 w-10 rounded-pill bg-line" />
         <div className="overflow-y-auto px-5 pb-10 pt-4">
-          <p className="text-xs font-medium text-faint">
-            {SOURCES[holding.source].label}
-          </p>
-          <h2 id="holding-title" className="mt-1 font-serif text-2xl">
-            {holding.name}
-          </h2>
-          <p className="text-sm text-muted">{holding.symbol}</p>
+          <div className="flex items-center gap-3">
+            <CoinMark symbol={holding.symbol} name={holding.name} className="size-12" />
+            <div>
+              <p className="text-xs font-medium text-faint">
+                {SOURCES[holding.source].label}
+              </p>
+              <h2 id="holding-title" className="font-serif text-2xl">
+                {holding.name}
+              </h2>
+              <p className="text-sm text-muted">{holding.symbol}</p>
+            </div>
+          </div>
 
           <p className="mt-5 font-serif text-4xl tabular-nums tracking-tight">
             {formatTwd(holding.valueTwd)}
