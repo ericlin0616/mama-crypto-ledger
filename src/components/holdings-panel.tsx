@@ -1,18 +1,28 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   formatPct,
   formatQty,
   formatSignedPct,
   formatTwd,
+  formatTwdNumber,
 } from "@/lib/format";
 import {
-  SOURCES,
   type SourceId,
   type ValuedHolding,
   type PortfolioView,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+
+const SLICE_COLORS = [
+  "var(--color-slice-1)",
+  "var(--color-slice-2)",
+  "var(--color-slice-3)",
+  "var(--color-slice-4)",
+  "var(--color-slice-5)",
+  "var(--color-slice-6)",
+];
 
 const FILTERS: { id: "all" | SourceId; label: string }[] = [
   { id: "all", label: "全部" },
@@ -28,6 +38,13 @@ type Props = {
   view: PortfolioView;
   onSelect: (id: string) => void;
   onAddEntry: () => void;
+};
+
+type PieRow = {
+  name: string;
+  value: number;
+  holdingId: string | null;
+  color: string;
 };
 
 export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
@@ -59,11 +76,48 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
 
   const groups = view.bySource.filter((s) => filter === "all" || s.source === filter);
 
+  const pieRows: PieRow[] = useMemo(() => {
+    const raw =
+      mode === "coin"
+        ? coinRows.map((row) => ({
+            name: row.title,
+            value: row.value,
+            holdingId: row.holdingId,
+          }))
+        : groups.map((g) => ({
+            name: g.label,
+            value: g.valueTwd,
+            holdingId: null as string | null,
+          }));
+    const top = raw.slice(0, 5);
+    const rest = raw.slice(5).reduce((sum, row) => sum + row.value, 0);
+    const rows = [
+      ...top.map((row, i) => ({ ...row, color: SLICE_COLORS[i] })),
+      ...(rest > 0
+        ? [{ name: "其他", value: rest, holdingId: null, color: SLICE_COLORS[5] }]
+        : []),
+    ];
+    return rows;
+  }, [mode, coinRows, groups]);
+
+  const pieTotal = pieRows.reduce((sum, row) => sum + row.value, 0);
+
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-xl bg-paper p-5 shadow-card">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-lg">持倉</h2>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1">
+            <h2 className="font-serif text-lg">持倉</h2>
+            <button
+              type="button"
+              aria-label="記一筆買進或賣出"
+              onPointerDown={onAddEntry}
+              onClick={onAddEntry}
+              className="flex size-11 items-center justify-center rounded-full text-faint transition-colors duration-150 hover:bg-bg hover:text-ink"
+            >
+              <Plus className="size-5" />
+            </button>
+          </div>
           <div className="flex rounded-md bg-bg p-1">
             <ModeBtn active={mode === "coin"} onClick={() => setMode("coin")}>
               依幣種
@@ -73,15 +127,56 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
             </ModeBtn>
           </div>
         </div>
-        <button
-          type="button"
-          onPointerDown={onAddEntry}
-          onClick={onAddEntry}
-          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-accent text-accent-fg text-sm font-medium"
-        >
-          <Plus className="size-4" />
-          記一筆買進或賣出
-        </button>
+
+        {pieRows.length > 0 ? (
+          <div className="chart-hit mt-2">
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieRows}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={0}
+                    outerRadius={92}
+                    paddingAngle={1.4}
+                    stroke="var(--color-paper)"
+                    strokeWidth={2}
+                    onClick={(_, index) => {
+                      const id = pieRows[index]?.holdingId;
+                      if (id) onSelect(id);
+                    }}
+                  >
+                    {pieRows.map((row) => (
+                      <Cell key={row.name} fill={row.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={<PieTip total={pieTotal} />}
+                    wrapperStyle={{ outline: "none" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-2">
+              {pieRows.map((row) => (
+                <li key={row.name} className="flex items-center gap-2 text-xs">
+                  <span
+                    className="size-2.5 shrink-0 rounded-pill"
+                    style={{ background: row.color }}
+                  />
+                  <span className="min-w-0 truncate">{row.name}</span>
+                  <span className="ml-auto tabular-nums text-faint">
+                    {pieTotal > 0 ? formatPct(row.value / pieTotal) : "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1">
           {FILTERS.map((f) => (
             <button
@@ -102,7 +197,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
 
       {mode === "coin" ? (
         <ul className="flex flex-col gap-2">
-          {coinRows.map((row) => (
+          {coinRows.map((row, i) => (
             <li key={row.key}>
               <button
                 type="button"
@@ -110,7 +205,10 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
                 onClick={() => row.holdingId && onSelect(row.holdingId)}
                 className="flex w-full min-h-16 items-center gap-3 rounded-xl bg-paper px-4 py-3 text-left shadow-card transition-transform duration-150 ease-out active:scale-[0.99]"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-soft font-serif text-xs text-accent">
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-md font-serif text-xs text-paper"
+                  style={{ background: SLICE_COLORS[Math.min(i, 5)] }}
+                >
                   {row.title.slice(0, 1)}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -147,12 +245,18 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
         </ul>
       ) : (
         <div className="flex flex-col gap-3">
-          {groups.map((g) => {
+          {groups.map((g, i) => {
             const items = view.visible.filter((h) => h.source === g.source);
             return (
               <section key={g.source} className="rounded-xl bg-paper p-4 shadow-card">
                 <div className="mb-2 flex items-baseline justify-between">
-                  <h3 className="text-sm font-medium">{g.label}</h3>
+                  <h3 className="flex items-center gap-2 text-sm font-medium">
+                    <span
+                      className="size-2.5 rounded-pill"
+                      style={{ background: SLICE_COLORS[Math.min(i, 5)] }}
+                    />
+                    {g.label}
+                  </h3>
                   <p className="text-sm tabular-nums text-muted">{formatTwd(g.valueTwd)}</p>
                 </div>
                 <ul className="divide-y divide-line">
@@ -167,6 +271,30 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function PieTip({
+  active,
+  payload,
+  total,
+}: {
+  active?: boolean;
+  payload?: { name?: string; value?: number }[];
+  total: number;
+}) {
+  const row = payload?.[0];
+  if (!active || !row || row.value === undefined) return null;
+  return (
+    <div className="rounded-md bg-paper px-3 py-2 shadow-card">
+      <p className="text-xs text-muted">{row.name}</p>
+      <p className="font-serif text-lg tabular-nums tracking-tight">
+        {formatTwdNumber(row.value)}
+      </p>
+      <p className="text-xs text-faint">
+        {total > 0 ? formatPct(row.value / total) : ""}
+      </p>
     </div>
   );
 }
