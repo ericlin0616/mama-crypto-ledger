@@ -132,7 +132,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-xl bg-paper p-5 shadow-card">
+      <section className="enter-card rounded-xl bg-paper p-5 shadow-card">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1">
             <h2 className="font-serif text-lg">持倉</h2>
@@ -224,7 +224,7 @@ export function HoldingsPanel({ view, onSelect, onAddEntry }: Props) {
       </section>
 
       {mode === "coin" ? (
-        <ul className="flex flex-col gap-2">
+        <ul className="enter-list flex flex-col gap-2">
           {coinRows.map((row, i) => (
             <li key={row.key} className="rounded-xl bg-paper shadow-card">
               <button

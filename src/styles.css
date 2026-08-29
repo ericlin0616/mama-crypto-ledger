@@ -231,10 +231,29 @@ html[data-profile="dad"] {
     animation: battleIn 420ms cubic-bezier(0.2, 0, 0, 1) both;
   }
 
-  .battle-bar {
-    transform-origin: center;
-    animation: battleBar 700ms cubic-bezier(0.2, 0, 0, 1) 200ms both;
+  .enter-card {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+    animation: battleIn 480ms cubic-bezier(0.2, 0, 0, 1) both;
   }
+
+  .enter-list > * {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+    animation: battleIn 400ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  .enter-list > *:nth-child(1) { animation-delay: 40ms; }
+  .enter-list > *:nth-child(2) { animation-delay: 90ms; }
+  .enter-list > *:nth-child(3) { animation-delay: 140ms; }
+  .enter-list > *:nth-child(4) { animation-delay: 190ms; }
+  .enter-list > *:nth-child(5) { animation-delay: 240ms; }
+  .enter-list > *:nth-child(6) { animation-delay: 290ms; }
+  .enter-list > *:nth-child(7) { animation-delay: 340ms; }
+  .enter-list > *:nth-child(8) { animation-delay: 390ms; }
+  .enter-list > *:nth-child(n + 9) { animation-delay: 430ms; }
 }
 
 @keyframes battlePop {
@@ -318,7 +337,9 @@ html[data-profile="dad"] {
   .battle-rope,
   .battle-coin,
   .battle-stagger,
-  .battle-bar {
+  .battle-bar,
+  .enter-card,
+  .enter-list > * {
     animation: none !important;
     opacity: 1;
     transform: none;

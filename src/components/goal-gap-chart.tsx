@@ -18,6 +18,7 @@ import {
   formatTwdNumber,
   formatWan,
 } from "@/lib/format";
+import { useCountUp } from "@/hooks/use-count-up";
 import { buildTrend, type TrendPoint } from "@/lib/trend";
 import type { PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -126,13 +127,14 @@ export function GoalGapChart({ view, usdTwd, owner }: Props) {
   const rows = useMemo(() => [...chart].slice(-3).reverse(), [chart]);
   const ceiling = Math.max(...chart.map((p) => p.gap), 1) * 1.18;
   const reached = view.totalTwd >= goal;
+  const gapShown = useCountUp(Math.max(0, view.gapTwd), 1000);
 
   return (
     <div className="mt-5">
       <div>
         <p className="text-sm font-medium text-muted">離目標還有多遠</p>
         <p className="mt-1 font-serif text-3xl tabular-nums tracking-tight">
-          {reached ? "已達標" : formatTwd(view.gapTwd)}
+          {reached ? "已達標" : formatTwd(Math.round(gapShown))}
         </p>
         <p className="mt-1 text-xs text-muted">
           {owner}的目標{formatGoalWan(goal)}全賣

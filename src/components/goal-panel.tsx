@@ -154,7 +154,7 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-xl bg-paper p-5 shadow-card">
+      <section className="enter-card rounded-xl bg-paper p-5 shadow-card">
         <p className="text-sm font-medium text-muted">我想達到</p>
         <div className="mt-2 flex items-end gap-2">
           <input

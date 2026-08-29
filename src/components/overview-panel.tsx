@@ -3,6 +3,7 @@ import { Share2 } from "lucide-react";
 import { GoalGapChart } from "@/components/goal-gap-chart";
 import { TrendChart } from "@/components/trend-chart";
 import { Button } from "@/components/ui/button";
+import { useCountUp } from "@/hooks/use-count-up";
 import {
   formatGoalShort,
   formatPct,
@@ -85,6 +86,14 @@ export function OverviewPanel({
     }))
     .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))[0];
 
+  const totalShown = useCountUp(view.totalTwd, 1100);
+  const pnlShown = useCountUp(view.totalPnlTwd ?? 0, 900);
+  const todayShown = useCountUp(view.todayDeltaTwd ?? 0, 800);
+  const visitShown = useCountUp(visitDelta ?? 0, 800);
+  const progressShown = useCountUp(Math.min(view.progress, 9.99) * 100, 900);
+  const cashShown = useCountUp(cashTwd, 900);
+  const coinShown = useCountUp(coinTwd, 900);
+
   const share = async () => {
     const text = buildSummary(view, owner);
     try {
@@ -106,10 +115,10 @@ export function OverviewPanel({
 
   return (
     <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start">
-      <section className="rounded-xl bg-paper p-5 shadow-card">
+      <section className="enter-card rounded-xl bg-paper p-5 shadow-card">
         <p className="text-sm font-medium text-muted">目前總資產</p>
         <p className="mt-1 font-serif text-5xl leading-tight tracking-tight tabular-nums">
-          {formatTwdNumber(view.totalTwd)}
+          {formatTwdNumber(Math.round(totalShown))}
         </p>
         <p className="mt-1 text-xs text-faint">
           台幣
@@ -121,14 +130,14 @@ export function OverviewPanel({
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Stat
             label="完成度"
-            value={formatPct(Math.min(view.progress, 9.99), 0)}
+            value={`${Math.round(progressShown)}%`}
           />
           <Stat
             label={view.totalPnlTwd !== null && view.totalPnlTwd >= 0 ? "估算獲利" : "估算虧損"}
             value={
               view.totalPnlTwd === null
                 ? "—"
-                : formatTwd(Math.abs(view.totalPnlTwd))
+                : formatTwd(Math.abs(Math.round(pnlShown)))
             }
             tone={
               view.totalPnlTwd === null
@@ -143,7 +152,7 @@ export function OverviewPanel({
             value={
               view.todayDeltaTwd === null
                 ? "—"
-                : formatSignedTwd(view.todayDeltaTwd)
+                : formatSignedTwd(Math.round(todayShown))
             }
             hint={
               view.todayDeltaPct === null
@@ -161,7 +170,7 @@ export function OverviewPanel({
           <Stat
             label={lastVisit ? `比 ${formatRelative(lastVisit.t)}` : "上次打開"}
             value={
-              visitDelta === null ? "—" : formatSignedTwd(visitDelta)
+              visitDelta === null ? "—" : formatSignedTwd(Math.round(visitShown))
             }
             tone={
               visitDelta === null
@@ -197,13 +206,16 @@ export function OverviewPanel({
         </div>
       </section>
 
-      <section className="rounded-xl bg-paper p-5 shadow-card">
+      <section
+        className="enter-card rounded-xl bg-paper p-5 shadow-card"
+        style={{ animationDelay: "80ms" }}
+      >
         <h2 className="font-serif text-lg">錢放哪一種</h2>
         <ul className="mt-4 flex flex-col gap-4">
           <li>
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">穩定幣（現金）</span>
-              <span className="text-sm tabular-nums">換成 {formatTwd(cashTwd)}</span>
+              <span className="text-sm tabular-nums">換成 {formatTwd(Math.round(cashShown))}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
               <div
@@ -223,7 +235,7 @@ export function OverviewPanel({
           <li>
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm">其他幣</span>
-              <span className="text-sm tabular-nums">{formatTwd(coinTwd)}</span>
+              <span className="text-sm tabular-nums">{formatTwd(Math.round(coinShown))}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-line">
               <div
@@ -251,7 +263,10 @@ export function OverviewPanel({
       <TrendChart view={view} usdTwd={usdTwd} owner={owner} />
 
       {view.majors.length > 0 ? (
-        <section className="rounded-xl bg-paper p-5 shadow-card">
+        <section
+        className="enter-card rounded-xl bg-paper p-5 shadow-card"
+        style={{ animationDelay: "160ms" }}
+      >
           <h2 className="font-serif text-lg">現在行情</h2>
           <ul className="mt-4 flex flex-col gap-3">
             {view.majors.map((row) => (
@@ -286,7 +301,10 @@ export function OverviewPanel({
         </section>
       ) : null}
 
-      <section className="rounded-xl bg-paper p-5 shadow-card">
+      <section
+        className="enter-card rounded-xl bg-paper p-5 shadow-card"
+        style={{ animationDelay: "220ms" }}
+      >
         <h2 className="font-serif text-lg">放在哪裡</h2>
         <ul className="mt-4 flex flex-col gap-4">
           {view.bySource.map((row) => (

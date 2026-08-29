@@ -144,7 +144,7 @@ export function TrendChart({ view, usdTwd, owner }: Props) {
           : `比特幣比較強，差 ${formatPct(Math.abs(stats.beat))}`;
 
   return (
-    <section className="span-all rounded-xl bg-paper p-5 shadow-card">
+    <section className="enter-card span-all rounded-xl bg-paper p-5 shadow-card" style={{ animationDelay: "120ms" }}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-serif text-lg">資產走勢</h2>
