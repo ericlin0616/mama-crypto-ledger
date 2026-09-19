@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { Share2 } from "lucide-react";
+import { useRef } from "react";
 import { CoinMark } from "@/components/coin-mark";
 import { GoalGapChart } from "@/components/goal-gap-chart";
 import { TrendChart } from "@/components/trend-chart";
-import { Button } from "@/components/ui/button";
 import { useCountUp } from "@/hooks/use-count-up";
 import {
   formatGapNumber,
@@ -20,50 +18,21 @@ import {
 import type { LastVisit } from "@/lib/ledger-store";
 import { SOURCES, isStableSymbol, type PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import { fireEaster, tapPoint } from "@/lib/easter";
 
 type Props = {
   view: PortfolioView;
   owner: string;
   lastVisit: LastVisit | null;
   usdTwd: number | null;
-  onOpenGoal: () => void;
 };
-
-function buildSummary(view: PortfolioView, owner: string): string {
-  const lines = [
-    `${owner}的加密帳本`,
-    `現在總資產 ${formatTwd(view.totalTwd)}`,
-  ];
-  if (view.todayDeltaTwd !== null && view.todayDeltaPct !== null) {
-    lines.push(
-      `今日約 ${formatSignedTwd(view.todayDeltaTwd)}（${formatSignedPct(view.todayDeltaPct)}）`,
-    );
-  }
-  if (view.totalTwd >= view.goalTwd) {
-    lines.push(`已達到目標 ${formatGoalShort(view.goalTwd)}`);
-  } else {
-    lines.push(
-      `目標 ${formatGoalShort(view.goalTwd)}，還差 ${formatTwd(view.gapTwd)}，整體再漲 ${formatPct(view.neededRatio)}`,
-    );
-  }
-  const btc = view.majors.find((m) => m.symbol === "BTC");
-  if (btc) {
-    lines.push(
-      `比特幣 ${formatUsd(btc.usd, 0)}${btc.change24h !== null ? `（${formatSignedPct(btc.change24h)}）` : ""}`,
-    );
-  }
-  return lines.join("\n");
-}
 
 export function OverviewPanel({
   view,
   owner,
   lastVisit,
   usdTwd,
-  onOpenGoal,
 }: Props) {
-  const [copied, setCopied] = useState(false);
-
   const goal = view.goalTwd;
   const reached = view.totalTwd >= goal;
   const cash = view.bySymbol.find((row) => row.grouped);
@@ -95,39 +64,33 @@ export function OverviewPanel({
   const progressShown = useCountUp(Math.min(view.progress, 9.99) * 100, 900);
   const cashShown = useCountUp(cashTwd, 900);
   const coinShown = useCountUp(coinTwd, 900);
-
-  const share = async () => {
-    const text = buildSummary(view, owner);
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, title: `${owner}的加密帳本` });
-        return;
-      }
-    } catch {
-      /* fall through */
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      window.prompt("複製下面這段", text);
-    }
-  };
+  const totalTaps = useRef(0);
 
   return (
     <div className="flex flex-col gap-4 md:grid md:grid-cols-2 md:items-start">
-      <section className="enter-card rounded-xl bg-paper p-5 shadow-card">
+      <section className="enter-card press-card rounded-xl bg-paper p-5 shadow-card">
         <p className="text-sm font-medium text-muted">目前總資產</p>
-        <p className="mt-1 font-serif text-5xl leading-tight tracking-tight tabular-nums">
+        <button
+          type="button"
+          className="num-glow mt-1 block w-full bg-transparent p-0 text-left font-serif text-5xl leading-tight tracking-tight tabular-nums"
+          onPointerDown={(e) => {
+            totalTaps.current += 1;
+            fireEaster({ kind: "spark", ...tapPoint(e) });
+            window.setTimeout(() => {
+              totalTaps.current = Math.max(0, totalTaps.current - 1);
+            }, 1600);
+            if (totalTaps.current >= 7) {
+              totalTaps.current = 0;
+              fireEaster({ kind: "rocket", text: `${owner}起飛了` });
+            }
+          }}
+        >
           {formatTwdNumber(Math.round(totalShown))}
-        </p>
+        </button>
         <p className="mt-1 text-xs text-faint">
           台幣
           {usdTwd ? ` · 1 美元 = ${formatTwd(usdTwd)}` : ""}
         </p>
-
-        <GoalGapChart view={view} usdTwd={usdTwd} owner={owner} />
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Stat
@@ -168,6 +131,7 @@ export function OverviewPanel({
                   ? "gain"
                   : "loss"
             }
+            spark={view.todayDeltaTwd !== null && view.todayDeltaTwd > 0}
           />
           <Stat
             label={lastVisit ? `比 ${formatRelative(lastVisit.t)}` : "上次打開"}
@@ -193,19 +157,7 @@ export function OverviewPanel({
             : ""}
         </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button onPointerDown={onOpenGoal} onClick={onOpenGoal}>
-            看怎麼到達標
-          </Button>
-          <Button
-            variant="secondary"
-            onPointerDown={() => void share()}
-            onClick={() => void share()}
-          >
-            <Share2 className="size-4" />
-            {copied ? "已複製" : "傳給家人"}
-          </Button>
-        </div>
+        <GoalGapChart view={view} usdTwd={usdTwd} owner={owner} />
       </section>
 
       <section
@@ -348,14 +300,16 @@ function Stat({
   value,
   hint,
   tone = "neutral",
+  spark = false,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: "neutral" | "gain" | "loss";
+  spark?: boolean;
 }) {
   return (
-    <div className="rounded-md bg-bg px-3 py-3">
+    <div className={cn("rounded-md bg-bg px-3 py-3", spark && "stat-spark")}>
       <p className="text-xs text-muted">{label}</p>
       <p
         className={cn(

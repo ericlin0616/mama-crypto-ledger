@@ -48,15 +48,20 @@ export function CoinMark({ symbol, name, className }: Props) {
   const file = FILES[symbol];
   const src = file ? `${import.meta.env.BASE_URL}coins/${file}` : null;
   const [broken, setBroken] = useState(false);
+  const [spin, setSpin] = useState(0);
   const label = (name ?? symbol).slice(0, 1);
+  const markClass = cn(
+    "coin-mark flex size-10 shrink-0 items-center justify-center rounded-full font-serif text-xs",
+    spin > 0 && "coin-spin",
+    className,
+  );
 
   if (!src || broken) {
     return (
       <span
-        className={cn(
-          "coin-mark flex size-10 shrink-0 items-center justify-center rounded-full font-serif text-xs",
-          className,
-        )}
+        key={spin}
+        className={markClass}
+        onPointerDown={() => setSpin((n) => n + 1)}
       >
         {label}
       </span>
@@ -65,10 +70,9 @@ export function CoinMark({ symbol, name, className }: Props) {
 
   return (
     <span
-      className={cn(
-        "coin-mark relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full p-0.5",
-        className,
-      )}
+      key={spin}
+      className={cn(markClass, "relative overflow-hidden p-0.5")}
+      onPointerDown={() => setSpin((n) => n + 1)}
     >
       <img
         src={src}

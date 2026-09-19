@@ -707,7 +707,7 @@ export function valueHolding(
 ): ValuedHolding {
   const quantityUsed =
     qtyOverride !== undefined ? qtyOverride : holding.quantity;
-  const quote = holding.priceKey ? book?.quotes[holding.priceKey] : undefined;
+  const quote = holding.priceKey ? book?.quotes?.[holding.priceKey] : undefined;
   const costTwd =
     costOverride !== undefined ? costOverride : holding.costTwd;
 
@@ -817,7 +817,7 @@ export function buildPortfolio(
 
   const majors: MajorQuote[] = [];
   for (const symbol of ["BTC", "ETH", "SOL"]) {
-    const quote = book?.quotes[symbol];
+    const quote = book?.quotes?.[symbol];
     if (!quote) continue;
     majors.push({
       symbol,

@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import { fireEaster, tapPoint } from "@/lib/easter";
 
 type Winner = "mom" | "dad" | "tie";
 
@@ -30,17 +32,22 @@ function Portrait({
   src,
   alt,
   ring,
+  onTap,
 }: {
   src: string;
   alt: string;
   ring: "mom" | "dad";
+  onTap: (event: { clientX: number; clientY: number }) => void;
 }) {
   return (
-    <span
+    <button
+      type="button"
       className={cn(
-        "relative block size-24 overflow-hidden rounded-full shadow-card ring-2",
+        "relative block size-24 overflow-hidden rounded-full border-0 bg-transparent p-0 shadow-card ring-2",
         ring === "mom" ? "ring-mom" : "ring-dad",
       )}
+      onPointerDown={onTap}
+      aria-label={alt}
     >
       <img
         src={src}
@@ -49,11 +56,13 @@ function Portrait({
         height={96}
         className="size-full object-cover"
       />
-    </span>
+    </button>
   );
 }
 
 export function BattleArena({ winner }: { winner: Winner }) {
+  const vsTaps = useRef(0);
+
   return (
     <div className="battle-arena relative mx-auto mt-3 h-40 w-full max-w-sm">
       <span className="battle-coin battle-coin-1" aria-hidden="true" />
@@ -65,19 +74,60 @@ export function BattleArena({ winner }: { winner: Winner }) {
         style={{ animationDelay: "60ms" }}
       >
         {winner === "mom" ? <Crown className="-mb-1" /> : <span className="h-6" />}
-        <Portrait src={MOM_SRC} alt="媽媽" ring="mom" />
+        <Portrait
+          src={MOM_SRC}
+          alt="媽媽"
+          ring="mom"
+          onTap={(e) => {
+            fireEaster({
+              kind: "spark",
+              ...tapPoint(e),
+              text: winner === "mom" ? "媽媽這回合領先" : "媽媽加油",
+            });
+          }}
+        />
       </div>
 
-      <div className="battle-vs absolute left-1/2 top-14 z-10 -translate-x-1/2">
+      <button
+        type="button"
+        className="battle-vs absolute left-1/2 top-14 z-10 -translate-x-1/2"
+        onPointerDown={(e) => {
+          vsTaps.current += 1;
+          window.setTimeout(() => {
+            vsTaps.current = Math.max(0, vsTaps.current - 1);
+          }, 1600);
+          if (vsTaps.current >= 3) {
+            vsTaps.current = 0;
+            fireEaster({
+              kind: "hearts",
+              ...tapPoint(e),
+              text: "其實是一家人",
+            });
+          } else {
+            fireEaster({ kind: "spark", ...tapPoint(e) });
+          }
+        }}
+      >
         VS
-      </div>
+      </button>
 
       <div
         className="battle-pop absolute right-2 top-5 flex flex-col items-center"
         style={{ animationDelay: "140ms" }}
       >
         {winner === "dad" ? <Crown className="-mb-1" /> : <span className="h-6" />}
-        <Portrait src={DAD_SRC} alt="爸爸" ring="dad" />
+        <Portrait
+          src={DAD_SRC}
+          alt="爸爸"
+          ring="dad"
+          onTap={(e) => {
+            fireEaster({
+              kind: "spark",
+              ...tapPoint(e),
+              text: winner === "dad" ? "爸爸這回合領先" : "爸爸加油",
+            });
+          }}
+        />
       </div>
     </div>
   );

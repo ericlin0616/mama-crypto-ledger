@@ -152,7 +152,7 @@ function buildQuotes(
 
   for (const symbol of symbols) {
     if (quotes[symbol]) continue;
-    const meta = SYMBOL_META[symbol];
+    const meta = SYMBOL_META?.[symbol];
     const pair = meta?.binance ?? `${symbol}USDT`;
     let usd = pair ? tickers[pair] : undefined;
     let change = pair ? tickerChange[pair] : undefined;

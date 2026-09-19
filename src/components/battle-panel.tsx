@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Share2 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { BattleArena } from "@/components/battle-figures";
-import { Button } from "@/components/ui/button";
 import { useCountUp } from "@/hooks/use-count-up";
 import {
   formatGapNumber,
@@ -12,6 +10,7 @@ import {
 } from "@/lib/format";
 import { btcQuantity, type PortfolioView } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import { fireEaster } from "@/lib/easter";
 
 type Props = {
   mom: PortfolioView;
@@ -22,17 +21,7 @@ function roi(view: PortfolioView): number | null {
   return view.roiPct;
 }
 
-function buildBattleText(mom: PortfolioView, dad: PortfolioView): string {
-  const lines = [
-    `爸媽資產對決（比報酬率）`,
-    `媽媽 ${mom.roiPct !== null ? formatSignedPct(mom.roiPct) : "—"}（投入 6.5 萬）`,
-    `爸爸 ${dad.roiPct !== null ? formatSignedPct(dad.roiPct) : "—"}（投入 10 萬）`,
-  ];
-  return lines.join("\n");
-}
-
 export function BattlePanel({ mom, dad }: Props) {
-  const [copied, setCopied] = useState(false);
   const momRoi = roi(mom);
   const dadRoi = roi(dad);
   const momShown = useCountUp((momRoi ?? 0) * 100);
@@ -64,27 +53,41 @@ export function BattlePanel({ mom, dad }: Props) {
           ? "mom"
           : "tie";
 
-  const share = async () => {
-    const text = buildBattleText(mom, dad);
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, title: "爸媽資產對決" });
-        return;
-      }
-    } catch {
-      /* fall through */
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      window.prompt("複製下面這段", text);
-    }
-  };
-
   const momBtc = btcQuantity(mom);
   const dadBtc = btcQuantity(dad);
+  const celebrated = useRef(false);
+
+  useEffect(() => {
+    if (celebrated.current) return;
+    if (mom.totalTwd < 1 || dad.totalTwd < 1) return;
+    celebrated.current = true;
+    const bothUp =
+      (momRoi ?? 0) > 0 && (dadRoi ?? 0) > 0;
+    window.setTimeout(() => {
+      if (bothUp) {
+        fireEaster({
+          kind: "hearts",
+          x: window.innerWidth / 2,
+          y: 160,
+          text: "兩個人都在賺",
+        });
+      } else if (roiWinner === "mom") {
+        fireEaster({
+          kind: "coins",
+          x: 72,
+          y: 140,
+          text: "媽媽報酬率領先",
+        });
+      } else if (roiWinner === "dad") {
+        fireEaster({
+          kind: "coins",
+          x: window.innerWidth - 72,
+          y: 140,
+          text: "爸爸報酬率領先",
+        });
+      }
+    }, 700);
+  }, [mom.totalTwd, dad.totalTwd, momRoi, dadRoi, roiWinner]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -242,18 +245,6 @@ export function BattlePanel({ mom, dad }: Props) {
           本金不一樣，用報酬率比才公平。
         </p>
       </section>
-
-      <div className="battle-stagger" style={{ animationDelay: "200ms" }}>
-        <Button
-          variant="secondary"
-          onPointerDown={() => void share()}
-          onClick={() => void share()}
-          className="w-full"
-        >
-          <Share2 className="size-4" />
-          {copied ? "已複製" : "把對決傳給家人"}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
     "build:pages": "PAGES_DEPLOY=1 PAGES_BASE=/mama-crypto-ledger/ node scripts/with-app-env.mjs vite build && node scripts/pack-pages.mjs",
+    "build:netlify": "PAGES_DEPLOY=1 PAGES_BASE=/ node scripts/with-app-env.mjs vite build && node scripts/pack-pages.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview",

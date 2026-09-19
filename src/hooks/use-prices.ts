@@ -6,6 +6,12 @@ type Status = "idle" | "loading" | "live" | "error";
 
 const REFRESH_MS = 30_000;
 
+function isPriceBook(value: unknown): value is PriceBook {
+  if (!value || typeof value !== "object") return false;
+  const quotes = (value as PriceBook).quotes;
+  return !!quotes && typeof quotes === "object";
+}
+
 export function usePrices(extraSymbols: string[] = []) {
   const [book, setBook] = useState<PriceBook | null>(null);
   const [status, setStatus] = useState<Status>("idle");
@@ -21,20 +27,26 @@ export function usePrices(extraSymbols: string[] = []) {
     setError(null);
     const extras = extrasRef.current;
     try {
-      let next: PriceBook;
+      let next: PriceBook | null = null;
       try {
-        next = await getLivePrices();
-        if (extras.length) {
-          const browser = await fetchPricesInBrowser(extras);
-          next = {
-            ...browser,
-            quotes: { ...next.quotes, ...browser.quotes },
-            fetchedAt: Date.now(),
-          };
-        }
+        const server = await getLivePrices();
+        if (isPriceBook(server)) next = server;
       } catch {
-        next = await fetchPricesInBrowser(extras);
+        /* static hosts have no /_serverFn */
       }
+      if (!next || extras.length) {
+        const browser = await fetchPricesInBrowser(extras);
+        if (isPriceBook(browser)) {
+          next = next
+            ? {
+                ...browser,
+                quotes: { ...next.quotes, ...browser.quotes },
+                fetchedAt: Date.now(),
+              }
+            : browser;
+        }
+      }
+      if (!isPriceBook(next)) throw new Error("無法取得市價");
       setBook(next);
       setStatus("live");
     } catch (err) {

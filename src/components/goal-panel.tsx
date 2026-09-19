@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import {
   formatGapNumber,
@@ -19,40 +19,26 @@ import {
   type PortfolioView,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import { fireEaster } from "@/lib/easter";
 
 type Props = {
   view: PortfolioView;
-  goalTwd: number;
-  onGoalChange: (value: number) => void;
+  owner: string;
 };
 
-const GOAL_PRESETS = [100_000, 110_000, 120_000, 130_000, 150_000, 200_000];
 const BTC_PRESETS = [80_000, 90_000, 100_000, 120_000, 150_000];
 
-export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
+export function GoalPanel({ view, owner }: Props) {
+  const goalTwd = view.goalTwd;
   const neededPct = Math.round(view.neededRatio * 100);
   const [userPct, setUserPct] = useState<number | null>(null);
   const growthPct = userPct ?? Math.max(neededPct, 0);
   const [btcTarget, setBtcTarget] = useState(100_000);
-  const [extraTwd, setExtraTwd] = useState(0);
-  const [goalDraft, setGoalDraft] = useState(String(goalTwd));
-  const [extraDraft, setExtraDraft] = useState("");
-  const [growthDraft, setGrowthDraft] = useState("");
   const [btcDraft, setBtcDraft] = useState("");
-
   const skipSlider = useRef(true);
 
-  useEffect(() => {
-    setGoalDraft(String(goalTwd));
-  }, [goalTwd]);
-
-  const projectedHoldings = applyUniformGrowth(view.totalTwd, growthPct / 100);
-  const projected = projectedHoldings + extraTwd;
+  const projected = applyUniformGrowth(view.totalTwd, growthPct / 100);
   const projectedGap = goalTwd - projected;
-  const neededWithExtra =
-    view.totalTwd > 0
-      ? Math.max(0, goalTwd - extraTwd - view.totalTwd) / view.totalTwd
-      : 0;
 
   const btcValue = basketValue(view, ["BTC"]);
   const majorsValue = basketValue(view, MAJOR_SYMBOLS);
@@ -100,51 +86,17 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
   const btcScenarioTotal = useMemo(() => {
     if (!usdTwd || qtyBtc <= 0) return null;
     const newBtcValue = qtyBtc * btcTarget * usdTwd;
-    return view.totalTwd - btcValue + newBtcValue + extraTwd;
-  }, [btcTarget, btcValue, extraTwd, qtyBtc, usdTwd, view.totalTwd]);
+    return view.totalTwd - btcValue + newBtcValue;
+  }, [btcTarget, btcValue, qtyBtc, usdTwd, view.totalTwd]);
 
   const impliedBtcUsd =
     qtyBtc > 0 && usdTwd
-      ? (btcValue + Math.max(0, view.gapTwd - extraTwd)) / qtyBtc / usdTwd
+      ? (btcValue + Math.max(0, view.gapTwd)) / qtyBtc / usdTwd
       : null;
 
   const recoverToCost = view.totalCostTwd;
   const recoverGap = goalTwd - recoverToCost;
   const reached = view.totalTwd >= goalTwd;
-  const chips = [neededPct, 20, 40, 50, 80, 100].filter(
-    (n, i, arr) => n > 0 && arr.indexOf(n) === i,
-  );
-
-  const commitGoal = (raw: string) => {
-    const n = Number(raw.replace(/,/g, ""));
-    if (!Number.isFinite(n) || n < 1000) return;
-    onGoalChange(Math.round(n));
-    setGoalDraft(String(Math.round(n)));
-  };
-
-  const commitExtra = (raw: string) => {
-    const n = Number(raw.replace(/,/g, ""));
-    if (!Number.isFinite(n) || n < 0) {
-      setExtraTwd(0);
-      setExtraDraft("");
-      return;
-    }
-    setExtraTwd(n);
-    setExtraDraft(raw);
-  };
-
-  const commitGrowth = (raw: string) => {
-    const trimmed = raw.trim().replace(/%/g, "");
-    if (trimmed === "") {
-      setUserPct(null);
-      return;
-    }
-    const n = Number(trimmed);
-    if (!Number.isFinite(n)) return;
-    const clamped = Math.max(0, Math.min(300, n));
-    setUserPct(clamped);
-    setGrowthDraft(String(clamped));
-  };
 
   const commitBtc = (raw: string) => {
     const n = Number(raw.replace(/,/g, "").replace(/\$/g, ""));
@@ -155,47 +107,26 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="enter-card rounded-xl bg-paper p-5 shadow-card">
-        <p className="text-sm font-medium text-muted">我想達到</p>
-        <div className="mt-2 flex items-end gap-2">
-          <input
-            inputMode="numeric"
-            value={goalDraft}
-            onChange={(e) => setGoalDraft(e.target.value)}
-            onBlur={() => commitGoal(goalDraft)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitGoal(goalDraft);
-            }}
-            aria-label="目標金額"
-            className="h-14 min-w-0 flex-1 rounded-md bg-bg px-3 font-serif text-3xl tabular-nums tracking-tight outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
-          />
-          <span className="mb-3 shrink-0 text-sm text-muted">元</span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {GOAL_PRESETS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onPointerDown={() => {
-                onGoalChange(n);
-                setGoalDraft(String(n));
-              }}
-              onClick={() => {
-                onGoalChange(n);
-                setGoalDraft(String(n));
-              }}
-              className={cn(
-                "h-11 rounded-pill px-4 text-sm",
-                goalTwd === n ? "bg-ink text-paper" : "bg-bg text-muted",
-              )}
-            >
-              {formatGoalShort(n)}
-            </button>
-          ))}
-        </div>
+      <section
+        className="enter-card press-card rounded-xl bg-paper p-5 shadow-card"
+        onPointerDown={() => {
+          if (!reached) return;
+          fireEaster({
+            kind: "coins",
+            x: window.innerWidth / 2,
+            y: 120,
+            text: `${owner}已經達標了`,
+          });
+        }}
+      >
+        <p className="text-sm font-medium text-muted">{owner}的目標</p>
+        <p className="mt-1 font-serif text-5xl leading-tight tracking-tight tabular-nums">
+          {formatGoalShort(goalTwd)}
+        </p>
+        <p className="mt-1 text-xs text-faint">台幣 · 全賣</p>
         <p className="mt-4 text-sm leading-relaxed text-muted">
           {reached
-            ? `已經到 ${formatGoalShort(goalTwd)} 了。可以把目標再往上調。`
+            ? `已經到 ${formatGoalShort(goalTwd)} 了。`
             : `現在 ${formatWan(view.totalTwd)}，${formatGapNumber(view.gapTwd)}。整體再漲 ${formatPct(view.neededRatio)} 就到。`}
         </p>
       </section>
@@ -203,25 +134,11 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
       <section className="rounded-xl bg-paper p-5 shadow-card">
         <h2 className="font-serif text-lg">自己算一次</h2>
         <p className="mt-1 text-sm text-muted">
-          填目標、再投入、漲幅，下面會立刻算出來。
+          調漲幅，下面會立刻算出離 {formatGoalShort(goalTwd)} 還差多少。
         </p>
 
-        <label className="mt-5 block text-sm font-medium" htmlFor="extra">
-          現在再投入（台幣）
-        </label>
-        <input
-          id="extra"
-          inputMode="numeric"
-          placeholder="0"
-          value={extraDraft}
-          onChange={(e) => commitExtra(e.target.value)}
-          className="mt-2 h-12 w-full rounded-md bg-bg px-3 text-base tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
-        />
-
         <div className="mt-5 flex items-end justify-between">
-          <label className="text-sm font-medium" htmlFor="growth">
-            假設整體再漲
-          </label>
+          <p className="text-sm font-medium">假設整體再漲</p>
           <p className="font-serif text-3xl tabular-nums tracking-tight">
             {growthPct}%
           </p>
@@ -234,49 +151,13 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
               skipSlider.current = false;
               return;
             }
-            const n = v[0] ?? 0;
-            setUserPct(n);
-            setGrowthDraft(String(n));
+            setUserPct(v[0] ?? 0);
           }}
           min={0}
           max={200}
           step={1}
           aria-label="全部持倉漲幅"
         />
-        <input
-          id="growth"
-          inputMode="decimal"
-          placeholder="也可以自己打，例如 40"
-          value={growthDraft}
-          onChange={(e) => setGrowthDraft(e.target.value)}
-          onBlur={() => commitGrowth(growthDraft)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitGrowth(growthDraft);
-          }}
-          className="mt-3 h-12 w-full rounded-md bg-bg px-3 text-base tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
-        />
-        <div className="mt-3 flex flex-wrap gap-2">
-          {chips.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onPointerDown={() => {
-                setUserPct(n);
-                setGrowthDraft(String(n));
-              }}
-              onClick={() => {
-                setUserPct(n);
-                setGrowthDraft(String(n));
-              }}
-              className={cn(
-                "h-11 rounded-pill px-4 text-sm",
-                growthPct === n ? "bg-ink text-paper" : "bg-bg text-muted",
-              )}
-            >
-              {n}%
-            </button>
-          ))}
-        </div>
 
         <div className="mt-5 rounded-md bg-bg px-4 py-4">
           <p className="text-xs text-muted">預估總資產</p>
@@ -293,16 +174,9 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
               ? `到了，還多 ${formatTwd(Math.abs(projectedGap))}`
               : `還差 ${formatTwd(projectedGap)}`}
           </p>
-          {extraTwd > 0 ? (
-            <p className="mt-2 text-xs text-faint">
-              含再投入 {formatTwd(extraTwd)}。持倉本身還要再漲{" "}
-              {formatPct(neededWithExtra)} 才夠到目標。
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-faint">
-              不額外投入的話，持倉要再漲 {formatPct(view.neededRatio)}。
-            </p>
-          )}
+          <p className="mt-2 text-xs text-faint">
+            持倉要再漲 {formatPct(view.neededRatio)} 才到 {formatGoalShort(goalTwd)}。
+          </p>
         </div>
       </section>
 
@@ -404,7 +278,7 @@ export function GoalPanel({ view, goalTwd, onGoalChange }: Props) {
           <p className="mt-3 text-sm leading-relaxed text-muted">
             有紀錄的買進成本大約 {formatWan(recoverToCost)}。
             {recoverToCost < goalTwd
-              ? ` 就算全部回到當時買進的價錢，也大約只有這個數字，離 ${formatGoalShort(goalTwd)} 還差 ${formatWan(recoverGap)}。要達標，不能只靠「解套」，還需要再漲一截，或之後再投入。`
+              ? ` 就算全部回到當時買進的價錢，也大約只有這個數字，離 ${formatGoalShort(goalTwd)} 還差 ${formatWan(recoverGap)}。要達標，不能只靠「解套」，還需要再漲一截。`
               : ` 回到本金就已經超過 ${formatGoalShort(goalTwd)}。`}
           </p>
         </section>

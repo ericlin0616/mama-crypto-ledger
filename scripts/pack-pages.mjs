@@ -36,4 +36,16 @@ const html = readFileSync(htmlPath).toString("utf8").replaceAll("\u0000", "");
 writeFileSync(indexPath, html);
 writeFileSync(join(dest, "404.html"), html);
 writeFileSync(join(dest, ".nojekyll"), "");
+writeFileSync(
+  join(dest, "_redirects"),
+  ["/_serverFn/*  /404.html  404", "/assets/*  /assets/:splat  200", "/*  /index.html  200"].join("\n") + "\n",
+);
+writeFileSync(
+  join(dest, "_headers"),
+  `/*
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+`,
+);
 console.log("[pack-pages] wrote", dest, "from", src);

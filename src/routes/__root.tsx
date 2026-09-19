@@ -13,7 +13,7 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content: "整理加密資產市值，並估算要漲多少才能達到十萬台幣。",
+        content: "爸媽加密帳本：媽媽目標十萬、爸爸十三萬，即時市價與對決。",
       },
       { name: "theme-color", content: "#efe8dc" },
     ],

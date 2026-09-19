@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookOpen, RefreshCw, Swords, Target, Wallet } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { RefreshCw } from "lucide-react";
 import { AddEntrySheet } from "@/components/add-entry-sheet";
 import { BattlePanel } from "@/components/battle-panel";
+import {
+  IconBattle,
+  IconGoal,
+  IconHoldings,
+  IconOverview,
+} from "@/components/dock-icons";
+import { EasterLayer } from "@/components/easter-layer";
 import { GoalPanel } from "@/components/goal-panel";
 import { HoldingSheet } from "@/components/holding-sheet";
 import { HoldingsPanel } from "@/components/holdings-panel";
@@ -13,19 +20,15 @@ import {
   applyTrade,
   loadCost,
   loadCustom,
-  loadGoal,
   loadHidden,
-  loadHistory,
   loadLastVisit,
   loadQty,
   recordHistory,
   saveCost,
   saveCustom,
-  saveGoal,
   saveHidden,
   saveLastVisit,
   saveQty,
-  type HistoryPoint,
   type LastVisit,
 } from "@/lib/ledger-store";
 import {
@@ -42,10 +45,15 @@ import {
   type ProfileId,
 } from "@/lib/profiles";
 import { cn } from "@/lib/utils";
+import { fireEaster, tapPoint } from "@/lib/easter";
 
 type Tab = "home" | "holdings" | "goal" | "battle";
 
 const TAB_KEY = "family-ledger-tab";
+const SECRETS: Record<ProfileId, string[]> = {
+  mom: ["穩定幣也算錢", "十萬全賣就達標", "慢慢存，別急", "別一直刷新，它知道"],
+  dad: ["本金十萬才公平", "目標十三萬全賣", "報酬率比總額重要", "別一直刷新，它知道"],
+};
 
 function loadTab(): Tab {
   if (typeof window === "undefined") return "home";
@@ -74,12 +82,16 @@ export function LedgerApp() {
   const [cost, setCost] = useState<Record<string, number>>({});
   const [custom, setCustom] = useState<Holding[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
-  const [goalTwd, setGoalTwd] = useState(PROFILES.mom.goalTwd);
-  const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [tab, setTab] = useState<Tab>(() => loadTab());
+  const [secret, setSecret] = useState<string | null>(null);
+  const welcomed = useRef(false);
+  const goalOnce = useRef<Partial<Record<ProfileId, boolean>>>({});
+  const sawTotal = useRef(false);
+  const battleOnce = useRef(false);
+  const refreshTaps = useRef(0);
 
   const meta = PROFILES[profile];
   const seed = useMemo(() => seedHoldings(profile), [profile]);
@@ -101,19 +113,32 @@ export function LedgerApp() {
     setCost(loadCost(profile));
     setCustom(loadCustom(profile));
     setHidden(loadHidden(profile));
-    setGoalTwd(loadGoal(meta.goalTwd, profile));
-    setHistory(loadHistory(profile));
     setLastVisit(loadLastVisit(profile));
     setSelectedId(null);
     setAdding(false);
-  }, [profile, meta.goalTwd]);
+    sawTotal.current = false;
+  }, [profile]);
+
+  useEffect(() => {
+    if (welcomed.current) return;
+    welcomed.current = true;
+    const id = window.setTimeout(() => {
+      fireEaster({
+        kind: "spark",
+        x: 96,
+        y: 52,
+        text: "回來了，先看爸媽帳本",
+      });
+    }, 650);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const view = useMemo(
     () =>
       buildPortfolio(
         book,
         qty,
-        goalTwd,
+        meta.goalTwd,
         {
           custom,
           costOverrides: cost,
@@ -122,7 +147,7 @@ export function LedgerApp() {
         },
         seed,
       ),
-    [book, qty, goalTwd, custom, cost, hidden, seed],
+    [book, qty, meta.goalTwd, custom, cost, hidden, seed, meta.costTwd],
   );
   const selected = view.holdings.find((h) => h.id === selectedId) ?? null;
   const live = status === "live";
@@ -138,8 +163,22 @@ export function LedgerApp() {
 
   useEffect(() => {
     if (view.totalTwd < 1) return;
+    if (view.totalTwd >= meta.goalTwd && sawTotal.current && !goalOnce.current[profile]) {
+      goalOnce.current[profile] = true;
+      fireEaster({
+        kind: "coins",
+        x: window.innerWidth / 2,
+        y: 90,
+        text: `${meta.owner}達標了`,
+      });
+    }
+    if (view.totalTwd > 1) sawTotal.current = true;
+  }, [view.totalTwd, meta.goalTwd, meta.owner, profile]);
+
+  useEffect(() => {
+    if (view.totalTwd < 1) return;
     const id = window.setTimeout(() => {
-      setHistory(recordHistory(view.totalTwd, profile));
+      recordHistory(view.totalTwd, profile);
       saveLastVisit(view.totalTwd, profile);
     }, 8000);
     return () => window.clearTimeout(id);
@@ -185,45 +224,104 @@ export function LedgerApp() {
     if (id === profile) return;
     saveProfile(id);
     setProfile(id);
+    fireEaster({
+      kind: "spark",
+      x: 120,
+      y: 48,
+      text: `換成${PROFILES[id].owner}的帳本`,
+    });
   };
 
   const goTab = (next: Tab) => {
+    if (next === "battle" && tab !== "battle" && !battleOnce.current) {
+      battleOnce.current = true;
+      fireEaster({ kind: "rocket", text: "爸媽對決開始" });
+    }
     setTab(next);
     saveTab(next);
   };
 
+  const bumpRefresh = () => {
+    refreshTaps.current += 1;
+    window.setTimeout(() => {
+      refreshTaps.current = Math.max(0, refreshTaps.current - 1);
+    }, 1800);
+    if (refreshTaps.current >= 5) {
+      refreshTaps.current = 0;
+      fireEaster({
+        kind: "spark",
+        x: window.innerWidth - 40,
+        y: 48,
+        text: "別一直刷新，它知道",
+      });
+    }
+    void refresh();
+  };
+
+  const tabs: Tab[] = ["home", "holdings", "battle", "goal"];
+  const tabIndex = Math.max(0, tabs.indexOf(tab));
+
   return (
     <div className="relative min-h-dvh bg-bg text-ink">
+      <EasterLayer />
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col md:max-w-4xl">
-        <header className="sticky top-0 z-20 bg-bg/80 px-5 pb-3 pt-safe backdrop-blur-md md:px-8">
+        <header className="sticky top-0 z-20 bg-bg/70 px-5 pb-3 pt-safe backdrop-blur-md md:px-8">
           <div className="flex items-center gap-3">
-            <ProfileSwitch value={profile} onChange={switchProfile} />
+            <ProfileSwitch
+              value={profile}
+              onChange={switchProfile}
+              onSecret={(e) => {
+                fireEaster({
+                  kind: "coins",
+                  ...tapPoint(e),
+                  text: `${meta.owner}的金幣雨`,
+                });
+              }}
+            />
             <button
               type="button"
-              onPointerDown={() => void refresh()}
-              onClick={() => void refresh()}
-              aria-label="更新市價"
               className="ml-auto flex size-11 items-center justify-center rounded-md bg-paper text-ink shadow-card transition-transform duration-150 ease-out active:scale-95"
+              onPointerDown={bumpRefresh}
+              onClick={bumpRefresh}
+              aria-label="更新市價"
             >
               <RefreshCw className={cn("size-4", status === "loading" && "animate-spin")} />
             </button>
           </div>
           <div className="mt-2 min-w-0">
-            <p className="flex items-center gap-1.5 text-xs text-faint">
-              {live ? (
-                <span className="inline-flex items-center gap-1 text-gain">
-                  <span className="size-1.5 rounded-pill bg-gain" />
-                  即時 {book ? formatTime(book.fetchedAt) : ""} 更新
-                  {book?.usdTwd ? ` · 1 美元 ${formatTwd(book.usdTwd)}` : ""}
-                </span>
-              ) : status === "loading" ? (
-                "正在更新市價…"
-              ) : status === "error" ? (
-                "市價暫時連不上，顯示截圖估值"
-              ) : (
-                "目前顯示截圖當時的估值"
-              )}
-            </p>
+            <button
+              type="button"
+              className="block bg-transparent p-0 text-left"
+              onPointerDown={() => {
+                const pool = SECRETS[profile];
+                const line = pool[Math.floor(Math.random() * pool.length)] ?? pool[0];
+                setSecret(line);
+                window.setTimeout(() => setSecret(null), 2400);
+              }}
+            >
+              <p className="brand-shimmer text-xs font-medium tracking-[0.16em]">
+                {meta.title}
+              </p>
+            </button>
+            {secret ? (
+              <p className="secret-line mt-1 text-xs text-accent">{secret}</p>
+            ) : (
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-faint">
+                {live ? (
+                  <span className="inline-flex items-center gap-1 text-gain">
+                    <span className="size-1.5 rounded-pill bg-gain" />
+                    即時 {book ? formatTime(book.fetchedAt) : ""} 更新
+                    {book?.usdTwd ? ` · 1 美元 ${formatTwd(book.usdTwd)}` : ""}
+                  </span>
+                ) : status === "loading" ? (
+                  "正在更新市價…"
+                ) : status === "error" ? (
+                  "市價暫時連不上，顯示截圖估值"
+                ) : (
+                  "目前顯示截圖當時的估值"
+                )}
+              </p>
+            )}
           </div>
         </header>
 
@@ -234,7 +332,6 @@ export function LedgerApp() {
               owner={meta.owner}
               lastVisit={lastVisit}
               usdTwd={book?.usdTwd ?? null}
-              onOpenGoal={() => goTab("goal")}
             />
           ) : null}
           {tab === "holdings" ? (
@@ -245,14 +342,7 @@ export function LedgerApp() {
             />
           ) : null}
           {tab === "goal" ? (
-            <GoalPanel
-              view={view}
-              goalTwd={goalTwd}
-              onGoalChange={(value) => {
-                setGoalTwd(value);
-                saveGoal(value, profile);
-              }}
-            />
+            <GoalPanel view={view} owner={meta.owner} />
           ) : null}
           {tab === "battle" ? (
             <BattlePanel mom={momView} dad={dadView} />
@@ -264,31 +354,31 @@ export function LedgerApp() {
         <div className="glass-dock-bar">
           <span
             className="glass-dock-thumb"
-            style={{ transform: `translateX(${["home", "holdings", "battle", "goal"].indexOf(tab) * 100}%)` }}
+            style={{ transform: `translateX(${tabIndex * 100}%)` }}
             aria-hidden="true"
           />
           <TabBtn
             active={tab === "home"}
             onClick={() => goTab("home")}
-            icon={<BookOpen className="size-5" />}
+            icon={<IconOverview className="size-5" />}
             label="總覽"
           />
           <TabBtn
             active={tab === "holdings"}
             onClick={() => goTab("holdings")}
-            icon={<Wallet className="size-5" />}
+            icon={<IconHoldings className="size-5" />}
             label="持倉"
           />
           <TabBtn
             active={tab === "battle"}
             onClick={() => goTab("battle")}
-            icon={<Swords className="size-5" />}
+            icon={<IconBattle className="size-5" />}
             label="對決"
           />
           <TabBtn
             active={tab === "goal"}
             onClick={() => goTab("goal")}
-            icon={<Target className="size-5" />}
+            icon={<IconGoal className="size-5" />}
             label="達標"
           />
         </div>
@@ -297,7 +387,7 @@ export function LedgerApp() {
       <HoldingSheet
         holding={selected}
         gapTwd={view.gapTwd}
-        goalTwd={goalTwd}
+        goalTwd={meta.goalTwd}
         open={selectedId !== null}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
@@ -365,7 +455,7 @@ function storedView(id: ProfileId, book: PriceBook | null): PortfolioView {
   return buildPortfolio(
     book,
     loadQty(id),
-    loadGoal(meta.goalTwd, id),
+    meta.goalTwd,
     {
       custom: loadCustom(id),
       costOverrides: loadCost(id),
